@@ -54,19 +54,6 @@ button {
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 2px var(--border-light);
   border-left: 1px solid var(--border-light);
   border-right: 1px solid var(--border-light);
-
-  /* テキストや要素の選択を無効化 */
-    -webkit-user-select: none;
-    user-select: none;
-
-    /* 長押し時のコールアウト（コピー・調べるなどのメニュー）を無効化 */
-    -webkit-touch-callout: none;
-
-    /* スクロールやダブルタップ拡大などのブラウザ標準動作を制御 */
-    touch-action: none;
-
-    /* タップ時のハイライト色を透明化 */
-    -webkit-tap-highlight-color: transparent;
 }
 
 .screen {
