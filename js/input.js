@@ -6,6 +6,9 @@
         this.canvas = canvas;
         this.engine = engine;
         this.pid = null;
+
+        // ★ 追加: 長押しによるコンテキストメニュー（コピーやメニュー）を無効化
+        canvas.addEventListener("contextmenu", function(e){ e.preventDefault(); });
         
         canvas.addEventListener("pointerdown", this.down.bind(this));
         canvas.addEventListener("pointermove", this.move.bind(this));
