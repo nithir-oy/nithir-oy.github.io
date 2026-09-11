@@ -40,7 +40,7 @@ button {
 .app {
   width: 100%;
   max-width: 520px;
-  height: 100dvh; /* ★ 画面高さに固定 */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: #0d1117;
@@ -59,31 +59,26 @@ button {
 .screen {
   display: none;
   width: 100%;
-  height: 100%; /* ★ 100dvh から 100% へ統一 */
+  height: 100%;
   flex-direction: column;
-  /* テキストや要素の選択を無効化 */
-    -webkit-user-select: none;
-    user-select: none;
-
-    /* 長押し時のコールアウト（コピー・調べるなどのメニュー）を無効化 */
-    -webkit-touch-callout: none;
-
-    /* スクロールやダブルタップ拡大などのブラウザ標準動作を制御 */
-    touch-action: none;
-
-    /* タップ時のハイライト色を透明化 */
-    -webkit-tap-highlight-color: transparent;
+  /* テキストや要素の長押し選択・コールアウトのみ全画面で無効化 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .screen.active {
   display: flex;
 }
 
-#screen-title, #screen-howto, #screen-clear, #screen-gameover {
+/* スクロールが必要な画面群：縦スワイプ（pan-y）を明確に許可 */
+#screen-title, #screen-howto, #screen-clear, #screen-gameover, #screen-levels {
   align-items: center;
   justify-content: center;
   padding: 24px;
   overflow-y: auto;
+  touch-action: pan-y;
 }
 
 .title-card, .panel, .result-card {
@@ -257,7 +252,7 @@ h2 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%; /* ★ 全高さを活用 */
+  height: 100%;
 }
 
 /* --- ゲーム画面ヘッダー拡張 --- */
@@ -300,7 +295,7 @@ h2 {
   filter: none;
 }
 
-/* プレイ画面：残りの縦幅全体（100%）にCanvas領域を広げる */
+/* プレイ画面：キャンバス領域のみ画面ズレ・スクロールを完全遮断 */
 .game-area {
   position: relative;
   flex: 1 1 auto;
