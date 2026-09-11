@@ -63,6 +63,66 @@ function isConnectedGraph(N, edges) {
   return count === N;
 }
 
+// 一筆書きの解が少なくとも1つ存在するか高速判定する関数
+function hasAtLeastOneEulerPath(N, edges) {
+  if (!edges || edges.length === 0) return false;
+  const numEdges = edges.length;
+
+  // 隣接リスト作成
+  const adj = Array.from({ length: N }, () => []);
+  edges.forEach((edge, index) => {
+    adj[edge[0]].push({ to: edge[1], edgeIdx: index });
+    adj[edge[1]].push({ to: edge[0], edgeIdx: index });
+  });
+
+  // 奇数ノード（始点候補）の特定
+  const degrees = new Array(N).fill(0);
+  edges.forEach(e => { degrees[e[0]]++; degrees[e[1]]++; });
+  const oddNodes = [];
+  for (let i = 0; i < N; i++) {
+    if (degrees[i] % 2 !== 0) oddNodes.push(i);
+  }
+
+  // 奇数ノード数が 0 または 2 以外なら即座に不可
+  if (oddNodes.length !== 0 && oddNodes.length !== 2) return false;
+
+  // 始点リスト（奇数ノードがあればそれが始点、なければ全ノードが候補）
+  const startNodes = oddNodes.length === 2 ? oddNodes : Array.from({ length: N }, (_, i) => i);
+
+  let steps = 0;
+  const MAX_STEPS = 20000; // 安全上限
+
+  for (let startNode of startNodes) {
+    const visitedEdges = new Array(numEdges).fill(false);
+    let found = false;
+
+    function dfs(currNode, count) {
+      if (found) return;
+      steps++;
+      if (steps > MAX_STEPS) return;
+
+      if (count === numEdges) {
+        found = true;
+        return;
+      }
+
+      for (let neighbor of adj[currNode]) {
+        if (!visitedEdges[neighbor.edgeIdx]) {
+          visitedEdges[neighbor.edgeIdx] = true;
+          dfs(neighbor.to, count + 1);
+          visitedEdges[neighbor.edgeIdx] = false;
+          if (found) return;
+        }
+      }
+    }
+
+    dfs(startNode, 0);
+    if (found) return true;
+  }
+
+  return false;
+}
+
 // ---------------------------------------------------------
 // 2. 難易度パラメータカーブ
 // ---------------------------------------------------------
@@ -104,12 +164,12 @@ function difficultyCurve(score) {
     allowTrail = false;
   } else { // hard (131~200)
     minScore = 131; maxScore = 200;
-    nodeRange = [10, 13];     // ★最大13（外周+内側の合計）に抑制
-    branchRange = [3, 5];     // 次数（選択肢）を多くして難易度を担保
-    loopRange = [3, 4];
-    crossRange = [4, 6];      // 交差を増やして視覚的な迷いを創出
-    innerRange = [3, 4];
-    allowTrail = score >= 150; // ★後半は一筆書き（始点限定）で思考負荷をアップ
+    nodeRange = [10, 12];     // 外周ノード数（最大12）
+    branchRange = [3, 4];
+    loopRange = [2, 3];
+    crossRange = [2, 4];      // 交差線を最大4本に制限（幾何衝突を大幅低減）
+    innerRange = [2, 3];      // 内側ノードを最大3個に制限
+    allowTrail = score >= 150;
   }
 
   // 区間内での進行度 (0.0 ～ 1.0) を正しく算出
@@ -249,7 +309,7 @@ function EdgePatternGenerator(score, params) {
 // ---------------------------------------------------------
 // 4. ノード座標配置生成器（変数の二重宣言修正＆反発強化）
 // ---------------------------------------------------------
-function NodeLayoutGenerator(score, params) {
+function NodeLayoutGenerator(score, params, edges = []) {
   const OUT = params.nodeCount;
   const IN = params.wantInnerEdges;
   const N = OUT + IN;
@@ -261,8 +321,8 @@ function NodeLayoutGenerator(score, params) {
   const archetypes = ['circle', 'flower', 'grid', 'random'];
 
   const MIN_DIST = N <= 5 ? 0.20 : (N <= 8 ? 0.16 : 0.12);
-  const PADDING_MIN = 0.08;
-  const PADDING_MAX = 0.92;
+  const PADDING_X_MIN = 0.08, PADDING_X_MAX = 0.92;
+  const PADDING_Y_MIN = 0.04, PADDING_Y_MAX = 0.96;
 
   while (!isValid && attempts < 100) {
     attempts++;
@@ -325,14 +385,16 @@ function NodeLayoutGenerator(score, params) {
     } else {
       for (let i = 0; i < N; i++) {
         nodes.push({
-          x: randRange(PADDING_MIN + 0.02, PADDING_MAX - 0.02),
-          y: randRange(PADDING_MIN + 0.02, PADDING_MAX - 0.02)
+          x: randRange(PADDING_X_MIN + 0.02, PADDING_X_MAX - 0.02),
+          y: randRange(PADDING_Y_MIN + 0.02, PADDING_Y_MAX - 0.02)
         });
       }
     }
 
-    if (nodes.length === N) {
-      for (let iter = 0; iter < 15; iter++) {
+    // ノード数の安全ガード付き反発シミュレーション（点-点 ＆ 点-線）
+    if (nodes.length === N && edges && edges.length > 0) {
+      for (let iter = 0; iter < 25; iter++) {
+        // 1. ノード同士（点と点）の反発
         for (let i = 0; i < N; i++) {
           for (let j = i + 1; j < N; j++) {
             if (!nodes[i] || !nodes[j]) continue;
@@ -349,6 +411,44 @@ function NodeLayoutGenerator(score, params) {
               nodes[i].y -= ny;
               nodes[j].x += nx;
               nodes[j].y += ny;
+            }
+          }
+        }
+
+        // ★追加: 2. ノードとエッジ（点と線）の反発ベクトル計算
+        const reqDist = N <= 5 ? 0.07 : (N <= 8 ? 0.05 : 0.035);
+        for (let edge of edges) {
+          const u = edge[0];
+          const v = edge[1];
+          if (!nodes[u] || !nodes[v]) continue;
+
+          for (let i = 0; i < N; i++) {
+            if (i === u || i === v || !nodes[i]) continue;
+
+            const p = nodes[i];
+            const a = nodes[u];
+            const b = nodes[v];
+
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) continue;
+
+            let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+
+            const projX = a.x + t * dx;
+            const projY = a.y + t * dy;
+            const dist = Math.hypot(p.x - projX, p.y - projY) || 0.001;
+
+            // 線分に近すぎる場合、線と垂直な方向へノードを押し出す
+            if (dist < reqDist) {
+              const push = (reqDist - dist) * 0.5;
+              const nx = (p.x - projX) / dist;
+              const ny = (p.y - projY) / dist;
+
+              nodes[i].x += nx * push;
+              nodes[i].y += ny * push;
             }
           }
         }
@@ -370,8 +470,8 @@ function NodeLayoutGenerator(score, params) {
   }
 
   return nodes.map(n => ({
-    x: Number(Math.min(PADDING_MAX, Math.max(PADDING_MIN, n.x)).toFixed(4)),
-    y: Number(Math.min(PADDING_MAX, Math.max(PADDING_MIN, n.y)).toFixed(4))
+    x: Number(Math.min(PADDING_X_MAX, Math.max(PADDING_X_MIN, n.x)).toFixed(4)),
+    y: Number(Math.min(PADDING_Y_MAX, Math.max(PADDING_Y_MIN, n.y)).toFixed(4))
   }));
 }
 
@@ -398,10 +498,15 @@ function pointToSegmentDistance(p, a, b) {
 // 5. 自動検証（単一レベルチェック）関数
 // ---------------------------------------------------------
 function validateSingleLevel(scheme, attemptCount = 0) {
-  const nodes = scheme.nodes;
-  const edgesList = scheme.edgesList || scheme.edges; 
-  const allowTrail = scheme.allowTrail;
+  const nodes = scheme.nodes || [];
+  const edgesList = scheme.edgesList || scheme.edges || []; 
+  // ★ 修正: params から allowTrail を取得（または直接指定に対応）
+  const allowTrail = scheme.params ? scheme.params.allowTrail : (scheme.allowTrail ?? true);
   const N = nodes.length;
+
+  if (N === 0) {
+    return { valid: false, reason: "ノードデータが存在しません" };
+  }
 
   if (!Array.isArray(edgesList) || edgesList.length === 0) {
     return { valid: false, reason: "エッジデータが存在しません" };
@@ -446,6 +551,8 @@ function validateSingleLevel(scheme, attemptCount = 0) {
     const nodeA = nodes[u];
     const nodeB = nodes[v];
 
+    if (!nodeA || !nodeB) continue;
+
     for (let i = 0; i < N; i++) {
       if (i === u || i === v) continue;
 
@@ -472,6 +579,7 @@ function validateSingleLevel(scheme, attemptCount = 0) {
   const oddNodes = degrees.filter(deg => deg % 2 !== 0).length;
   if (degrees.some(d => d === 0)) return { valid: false, reason: `孤立ノード存在` };
 
+  // 奇数ノード数の条件確認
   if (allowTrail ? (oddNodes !== 2 && oddNodes !== 0) : (oddNodes !== 0)) {
     return { valid: false, reason: `一筆書き解法不可 (奇数ノード数: ${oddNodes})` };
   }
@@ -479,6 +587,11 @@ function validateSingleLevel(scheme, attemptCount = 0) {
   // 5. グラフ連結性チェック (安全な共通関数を使用)
   if (!isConnectedGraph(N, edgesList)) {
     return { valid: false, reason: `グラフ分断` };
+  }
+
+  // ★追加: 6. 最終実走判定（クリアパターンの存在を絶対に保証する）
+  if (!hasAtLeastOneEulerPath(N, edgesList)) {
+    return { valid: false, reason: `クリアパターンが存在しません (一筆書き不可)` };
   }
 
   return { valid: true };
@@ -531,10 +644,20 @@ function MasterGenerator(start, end) {
 
     while (!isValid && attempts < 200) {
       attempts++;
-      const params = difficultyCurve(score);
+      let params = difficultyCurve(score);
 
+      if (attempts > 10) {
+        params = { ...params };
+        if (params.wantCross > 1) params.wantCross -= 1;
+        if (attempts > 30 && params.wantInnerEdges > 1) params.wantInnerEdges -= 1;
+      }
+
+      // 1. エッジを先に生成
       edges = EdgePatternGenerator(score, params);
-      nodes = NodeLayoutGenerator(score, params);
+      
+      // 2. 第3引数に edges を渡してノード位置を計算
+      nodes = NodeLayoutGenerator(score, params, edges);
+      
       scheme = LevelSchemeAssembler(score, edges, nodes, params);
 
       const check = validateSingleLevel(scheme, attempts);

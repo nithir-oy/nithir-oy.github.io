@@ -48,6 +48,8 @@ function initApp() {
 
     // ★ 50問ごとのページ切り替え ＆ 解放判定対応 grid()
     // ★ storage.js と完全に連携した grid()
+    var DEBUG_UNLOCK_ALL = true;
+
     function grid(){
         var g = document.getElementById("level-grid");
         if (!g) return;
@@ -61,9 +63,12 @@ function initApp() {
             var b = document.createElement("button");
             
             // storage.js の isUnlocked(i) を直接呼び出して判定
-            var has = (typeof GameStorage !== "undefined" && typeof GameStorage.isUnlocked === "function")
-                ? GameStorage.isUnlocked(i)
-                : (i === 1);
+            // ★ 修正: デバッグフラグが true の場合は無条件で true (解放)
+            var has = DEBUG_UNLOCK_ALL || (
+                 (typeof GameStorage !== "undefined" && typeof GameStorage.isUnlocked === "function")
+                    ? GameStorage.isUnlocked(i)
+                    : (i === 1)
+            );
 
             b.className = "level-button " + (has ? "unlocked" : "locked");
             b.textContent = i;
