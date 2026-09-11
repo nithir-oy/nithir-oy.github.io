@@ -9,7 +9,7 @@
         this.height = 1;
         this.dpr = 1;
         this.problem = null;
-        this.nodeRadius = 11; // 通常のノードサイズ
+        this.nodeRadius = 11; // 通常のノード半径
         this.hitRadius = 26;  // 当たり判定半径
     }
 
@@ -79,7 +79,7 @@
             c.stroke();
         }
 
-        // 3. ドラッグ中の補助線
+        // 3. ドラッグ中の線
         if (s.dragging && s.pointer != null && s.currentNode != null && s.currentNode >= 0) {
             var cur = this.point(p.nodes[s.currentNode]);
             c.beginPath();
@@ -88,23 +88,22 @@
             c.stroke();
         }
 
-        // ★ 接続可能ノードの算出（現在地に隣接していて、未通過のエッジでつながるノード）
-        var connectableNodes = new Set();
+        // ★ 1. 接続可能ノードの算出（現在地から未通過エッジでつながる隣接ノード）
+        var connectableNodes = {};
         if (s.currentNode !== null && s.currentNode >= 0) {
             for (var eIdx = 0; eIdx < p.edges.length; eIdx++) {
-                // すでに通過済みのエッジはスキップ
                 if (s.pathEdges && s.pathEdges.indexOf(eIdx) !== -1) continue;
 
                 var edge = p.edges[eIdx];
                 if (edge[0] === s.currentNode) {
-                    connectableNodes.add(edge[1]);
+                    connectableNodes[edge[1]] = true;
                 } else if (edge[1] === s.currentNode) {
-                    connectableNodes.add(edge[0]);
+                    connectableNodes[edge[0]] = true;
                 }
             }
         }
 
-        // ★ ドラッグ指位置で「吸い込まれそうなターゲットノード」を検出
+        // ★ 2. ドラッグ中の指（s.pointer）がどのノードの判定範囲に入っているか検出
         var hoverTargetNode = null;
         if (s.dragging && s.pointer != null) {
             hoverTargetNode = this.hitNode(s.pointer.x, s.pointer.y);
@@ -115,25 +114,40 @@
             var n = p.nodes[k],
                 q = this.point(n);
 
-            // 条件判定: 「現在地」「接続可能（隣接）」「指が接近中」のいずれかなら拡大
             var isCurrent = (s.currentNode === k);
-            var isConnectable = connectableNodes.has(k);
+            var isConnectable = !!connectableNodes[k];
             var isHovered = (hoverTargetNode === k && isConnectable);
 
-            var radius = (isCurrent || isConnectable || isHovered) ? 18 : this.nodeRadius;
+            // ★ 判定条件に応じてサイズと色を切り替え
+            var radius = this.nodeRadius;
+            var color = "#ef5b46"; // 通常（赤）
+
+            if (isCurrent) {
+                radius = 18;
+                color = "#ef5b46";
+            } else if (isHovered) {
+                // 指が接近して「吸い込まれる直前」のノード（水色 ＋ 拡大）
+                radius = 20;
+                color = "#00f0ff";
+            } else if (isConnectable) {
+                // 次に接続可能な隣接ノード（オレンジ ＋ 拡大）
+                radius = 16;
+                color = "#ff7b00";
+            }
 
             c.beginPath();
             c.arc(q.x, q.y, radius, 0, Math.PI * 2);
-
-            // 色分け: 接続可能ノードは少しネオンブルー寄りに
-            if (isHovered) {
-                c.fillStyle = "#00f0ff"; // 指が近づいて吸着しそうなノード（水色）
-            } else if (isConnectable) {
-                c.fillStyle = "#ff7b00"; // 接続可能な隣接ノード（オレンジ強調）
-            } else {
-                c.fillStyle = "#ef5b46"; // 通常ノード（赤）
-            }
+            c.fillStyle = color;
             c.fill();
+
+            // 吸い込み直前（isHovered）の時はネオンリングを描画
+            if (isHovered) {
+                c.beginPath();
+                c.arc(q.x, q.y, radius + 6, 0, Math.PI * 2);
+                c.strokeStyle = "#00f0ff";
+                c.lineWidth = 3;
+                c.stroke();
+            }
 
             // 現在地ノードの強調リング
             if (isCurrent) {
