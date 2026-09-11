@@ -146,23 +146,30 @@
         if (!this.dragging || !this.started) return;
 
         this.pointer = pos;
-        var n = this.r.hitNode(pos.x, pos.y);
 
-        // ★★★ ここにログを入れる ★★★
-        console.log("hitNode:", n, "pos:", pos.x, pos.y);
+        // ★ 1. 現在地から接続可能なノードのマップを作成
+        var connectableNodes = null;
+        if (this.currentNode !== null && this.currentNode >= 0) {
+            connectableNodes = {};
+            for (var i = 0; i < this.level.edges.length; i++) {
+                // すでに使用済みのエッジはスキップ
+                if (this.used[i]) continue;
 
-        console.log("current:", this.currentNode, "next:", n);
+                var e = this.level.edges[i];
+                if (e[0] === this.currentNode) connectableNodes[e[1]] = true;
+                if (e[1] === this.currentNode) connectableNodes[e[0]] = true;
+            }
+        }
+
+        // ★ 2. 接続可能なノード（拡大表示されているノード）のみを対象にヒット判定
+        var n = this.r.hitNode(pos.x, pos.y, connectableNodes);
 
         if (n !== null && n !== this.currentNode){
             var id = this.edgeId(this.currentNode, n);
 
-            // ★★★ ここにもログを入れる ★★★
-            console.log("edgeId:", id);
-            if (id < 0) console.log("MISS原因: edgeIdが-1（存在しない線）");
-
+            // ※ 接続可能ノードのみを判定しているため、基本的にここを通過するのは有効なエッジのみになります
             if (id < 0 || this.used[id]){
-                this.fail("使用できない線です");
-                return;
+                return; // 念のための防護措置（failを呼ばずにスルー）
             }
 
             this.used[id] = true;
@@ -172,24 +179,23 @@
 
             this.render();
 
-            // ★ 修正後のクリア判定
+            // 修正後のクリア判定
             if (Object.keys(this.used).length === this.level.edges.length){
-            // スタートに戻るかどうかは見ない
-            this.dragging = false;
-            this.pointer = null;
-            this.transition = true;
+                this.dragging = false;
+                this.pointer = null;
+                this.transition = true;
 
-            var sec = (performance.now() - this.startedAt) / 1000;
+                var sec = (performance.now() - this.startedAt) / 1000;
 
-            if (this.cb.clear){
-                this.cb.clear({
-                    level: this.level.id,
-                    seconds: sec,
-                    failures: this.failures
-                });
+                if (this.cb.clear){
+                    this.cb.clear({
+                        level: this.level.id,
+                        seconds: sec,
+                        failures: this.failures
+                    });
+                }
+                return;
             }
-            return;
-        }
         }
 
         this.render();

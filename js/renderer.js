@@ -160,16 +160,22 @@
         }
     };
 
-    Renderer.prototype.hitNode = function(x, y){
+    // ★ 引数に connectableNodes（接続可能ノードのマップ/オブジェクト）を追加
+    Renderer.prototype.hitNode = function(x, y, connectableNodes){
         var p = this.problem, b = null, bd = Infinity;
         if (!p) return null;
 
         for (var i = 0; i < p.nodes.length; i++){
+            // ★ 接続可能リストが渡されている場合、対象外のノードは判定すらスキップする
+            if (connectableNodes && !connectableNodes[i]) {
+                continue;
+            }
+
             var q = this.point(p.nodes[i]),
                 d = Math.hypot(q.x - x, q.y - y);
 
             if (d <= this.hitRadius && d < bd){
-                b = i;
+                b = i;   // ノード番号を返す
                 bd = d;
             }
         }
