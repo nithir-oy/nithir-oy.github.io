@@ -9,28 +9,30 @@
         this.height = 1;
         this.dpr = 1;
         this.problem = null;
-        this.nodeRadius = 11;
-        this.hitRadius = 12;
+        this.nodeRadius = 12; // 見た目のノード半径
+        this.hitRadius = 26;  // ★ タッチ判定半径（スマホ向けに拡大: 12 → 26）
     }
 
     Renderer.prototype.resize = function () {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // キャンバスの表示サイズ（CSS）を取得
-    const rect = this.canvas.getBoundingClientRect();
-    this.width  = rect.width;
-    this.height = rect.height;
+        // キャンバスの表示サイズ（CSS）を取得
+        const rect = this.canvas.getBoundingClientRect();
+        this.width  = rect.width;
+        this.height = rect.height;
 
-    // 内部ピクセルサイズを dpr に合わせて設定
-    this.canvas.width  = Math.round(this.width  * this.dpr);
-    this.canvas.height = Math.round(this.height * this.dpr);
+        // 内部ピクセルサイズを dpr に合わせて設定
+        this.canvas.width  = Math.round(this.width  * this.dpr);
+        this.canvas.height = Math.round(this.height * this.dpr);
 
-    // 描画コンテキストを dpr に合わせる
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-};
+        // 描画コンテキストを dpr に合わせる
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    };
 
     window.addEventListener("resize", () => {
-        renderer.resize();
+        if (typeof renderer !== "undefined" && renderer.resize) {
+            renderer.resize();
+        }
     });
 
     Renderer.prototype.setProblem = function(p){
@@ -39,12 +41,13 @@
     };
 
     // ★ 正規化座標（0〜1）をキャンバスサイズに変換
+    // キャンバス自体が縦長であれば、Y座標は自動的に縦長に引き伸ばされます
     Renderer.prototype.point = function(n){
-    return {
-        x: n.x * this.width,
-        y: n.y * this.height
+        return {
+            x: n.x * this.width,
+            y: n.y * this.height
+        };
     };
-};
 
     Renderer.prototype.draw = function(s){
         var c = this.ctx, p = this.problem;
@@ -83,7 +86,7 @@
             c.stroke();
         }
 
-        // ★ ドラッグ中の線（安全ガード付き）
+        // ★ ドラッグ中の線
         if (s.dragging && s.pointer != null && s.currentNode != null && s.currentNode >= 0) {
             var cur = this.point(p.nodes[s.currentNode]);
             c.beginPath();
@@ -102,7 +105,7 @@
             c.fillStyle = "#ef5b46";
             c.fill();
 
-            // ★ 現在ノード判定（n.id → k に修正）
+            // 現在ノード強調リング
             if (s.currentNode === k) {
                 c.beginPath();
                 c.arc(q.x, q.y, this.nodeRadius + 5, 0, Math.PI * 2);
@@ -113,7 +116,7 @@
         }
     };
 
-    // ★ ノード判定（n.id → i に修正）
+    // ★ ノード判定（hitRadius を拡大して判定しやすく改修）
     Renderer.prototype.hitNode = function(x, y){
         var p = this.problem, b = null, bd = Infinity;
         if (!p) return null;
@@ -123,7 +126,7 @@
                 d = Math.hypot(q.x - x, q.y - y);
 
             if (d <= this.hitRadius && d < bd){
-                b = i;   // ノード番号を返す
+                b = i;
                 bd = d;
             }
         }

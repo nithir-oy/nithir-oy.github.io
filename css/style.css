@@ -40,15 +40,14 @@ button {
 .app {
   width: 100%;
   max-width: 520px;
-  min-height: 100dvh;
-  /* ベースの暗い背景色 */
+  height: 100dvh; /* ★ 画面高さに固定 */
+  display: flex;
+  flex-direction: column;
   background-color: #0d1117;
-  /* グリッド線とネオンのグラデーション */
   background-image: 
     radial-gradient(circle at 50% 25%, rgba(112, 0, 255, 0.2) 0%, rgba(0, 240, 255, 0.08) 45%, transparent 80%),
     linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
-  /* グリッドの間隔（32px四方） */
   background-size: 100% 100%, 32px 32px, 32px 32px;
   background-position: center, center, center;
   
@@ -60,7 +59,8 @@ button {
 .screen {
   display: none;
   width: 100%;
-  min-height: 100dvh;
+  height: 100%; /* ★ 100dvh から 100% へ統一 */
+  flex-direction: column;
 }
 
 .screen.active {
@@ -71,6 +71,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow-y: auto;
 }
 
 .title-card, .panel, .result-card {
@@ -89,8 +90,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  width: min(100%, 280px); /* 幅を 280px に拡大 */
-  height: 80px;            /* 高さを 80px に拡大 */
+  width: min(100%, 280px);
+  height: 80px;
   border-radius: 20px;
   background: rgba(16, 20, 28, 0.85);
   padding-right: 20px;
@@ -99,7 +100,6 @@ button {
   margin-bottom: 12px;
 }
 
-/* サブテキスト（: ONE）のサイズ */
 .logo-sub {
   font-size: 20px;
   color: var(--accent);
@@ -236,19 +236,22 @@ h2 {
 }
 
 /* ゲーム画面 */
-#screen-game { flex-direction: column; }
+#screen-game { 
+  flex-direction: column; 
+  height: 100%;
+}
 
 .game-shell {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100dvh;
+  height: 100%; /* ★ 全高さを活用 */
 }
 
 /* --- ゲーム画面ヘッダー拡張 --- */
 
 .game-header {
-  height: 80px; /* 64px から 80px へ拡張 */
+  height: 80px;
   flex: 0 0 80px;
   display: flex;
   align-items: center;
@@ -259,42 +262,41 @@ h2 {
 }
 
 .level-label {
-  font-size: 26px; /* 20px から 26px へ拡大 */
+  font-size: 26px;
   font-weight: 800;
   color: var(--accent);
   letter-spacing: 0.08em;
-  text-shadow: 0 0 12px var(--accent-glow); /* ネオン感を追加 */
+  text-shadow: 0 0 12px var(--accent-glow);
 }
 
 .life { 
   display: flex; 
   align-items: center; 
-  gap: 10px; /* ハート同士の間隔を少し広げる */
+  gap: 10px;
 }
 
 .heart {
-  font-size: 36px; /* 26px から 36px へ拡大 */
+  font-size: 36px;
   color: var(--danger);
-  /* くっきり見えるようネオンシャドウと光沢感を強調 */
   filter: drop-shadow(0 0 10px var(--danger)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.8));
   transition: transform 0.2s ease, filter 0.2s ease;
 }
 
 .heart.empty {
-  color: rgba(255, 255, 255, 0.08); /* 減った時のハートを少しだけ透過表示 */
+  color: rgba(255, 255, 255, 0.08);
   -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.3);
   filter: none;
 }
 
-/* プレイ画面：パズルを邪魔しない暗色グラデーション */
+/* プレイ画面：残りの縦幅全体（100%）にCanvas領域を広げる */
 .game-area {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* グリッド線は引かず、中央からうっすら光るグラデーションのみにする */
   background: radial-gradient(circle at 50% 50%, rgba(112, 0, 255, 0.15) 0%, #0d1117 75%);
   touch-action: none;
   overflow: hidden;
