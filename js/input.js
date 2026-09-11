@@ -46,15 +46,32 @@
         this.engine.pointerMove(this.pos(e));
     };
 
+    // input.js
     Input.prototype.up = function(e){
         if(e.pointerId !== this.pid) return;
         e.preventDefault();
+    
+        // ★ 追加: ポインターキャプチャを解除する
+        try {
+            if (this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(e.pointerId)) {
+                this.canvas.releasePointerCapture(e.pointerId);
+            }
+        } catch(_) {}
+
         this.engine.pointerUp(this.pos(e));
         this.pid = null;
     };
 
     Input.prototype.cancel = function(e){
         if(e.pointerId !== this.pid) return;
+    
+        // ★ 追加: キャンセル時もポインターキャプチャを解除する
+        try {
+            if (this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(e.pointerId)) {
+                this.canvas.releasePointerCapture(e.pointerId);
+            }
+        } catch(_) {}
+
         this.engine.pointerCancel();
         this.pid = null;
     };
