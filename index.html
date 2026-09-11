@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#7657c5">
+<title>CONNECT : ONE</title>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<main id="app" class="app">
+<section id="screen-title" class="screen active">
+    <div class="title-card">
+        <!-- タイトルテキストも兼ねた大型ロゴバッジ -->
+        <div class="logo-mark">
+            <!-- 発光ノード＆ラインSVGアイコン -->
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 8px #00f0ff);">
+                <circle cx="6" cy="6" r="2.5" fill="#00f0ff"/>
+                <circle cx="18" cy="6" r="2.5" fill="#00f0ff"/>
+                <circle cx="12" cy="18" r="2.5" fill="#00f0ff"/>
+                <path d="M6 6L18 6L12 18Z"/>
+            </svg>
+            <div style="text-align: left; line-height: 1.1;">
+                <div style="font-size: 12px; color: #8a99ad; font-weight: 800; letter-spacing: 3px; margin-bottom: 2px;">PUZZLE</div>
+                <div style="font-size: 22px; color: #fff; font-weight: 900; letter-spacing: 1.5px;">CONNECT <span style="color: var(--accent); text-shadow: 0 0 10px var(--accent-glow);">: ONE</span></div>
+            </div>
+        </div>
+
+        <p style="margin-top: 16px;">すべての線を一度ずつ通って、<br>スタート地点に戻ろう。</p>
+
+        <button id="btn-start" class="primary-button">START</button>
+        <button id="btn-howto" class="text-button">遊び方</button>
+        <button id="btn-reset-data" class="text-button" style="color: #e53e3e; margin-top: 10px;">データを初期化</button>
+    </div>
+</section>
+<section id="screen-howto" class="screen"><div class="panel">
+<h2>遊び方</h2><ol class="howto-list">
+<li>任意の●を押してスタート。</li><li>指またはマウスを離さず、●から●へ線をなぞります。</li>
+<li>一度通った線は、逆方向も含めて二度通れません。</li>
+<li>●に到達したところで指・マウスを離してもOK。続きは最後の●から再開します。</li>
+<li>すべての線を1回ずつ通って、スタート地点に戻ればクリアです。</li>
+</ol><p class="note">1つのLevelにつきLifeは3。失敗すると1つ減り、0になるとGAME OVERです。</p>
+<button id="btn-howto-back" class="primary-button">戻る</button></div></section>
+
+<section id="screen-levels" class="screen"><div class="panel level-panel">
+<div class="screen-heading"><h2>LEVEL SELECT</h2><button id="btn-levels-home" class="small-button">HOME</button></div>
+<p class="screen-subtitle">クリアしたLevelが解放されます。</p>
+
+<!-- 1. グリッドエリア -->
+<div id="level-grid" class="level-grid"></div>
+
+<!-- 2. ページ送りUIの追加 -->
+<div class="level-pagination" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px;">
+  <button id="btn-page-prev" class="small-button">前へ</button>
+  <span id="page-info" style="font-weight: bold; color: #fff;">1 / 4</span>
+  <button id="btn-page-next" class="small-button">次へ</button>
+</div>
+</div></section>
+
+<section id="screen-game" class="screen"><div class="game-shell">
+<header class="game-header"><div class="level-label">Level <span id="game-level">1</span></div><div id="life" class="life"></div></header>
+<div class="game-area"><canvas id="game-canvas"></canvas><div id="game-message" class="game-message"></div></div>
+<div class="game-footer"><button id="btn-game-restart" class="secondary-button">RESTART</button><button id="btn-game-levels" class="text-button">LEVEL SELECT</button></div>
+</div></section>
+<section id="screen-clear" class="screen"><div class="result-card"><div class="result-title">CLEAR!</div><div class="result-level">Level <span id="clear-level">1</span></div><div id="clear-stats" class="result-stats"></div><button id="btn-next" class="primary-button">NEXT LEVEL</button><button id="btn-clear-levels" class="text-button">LEVEL SELECT</button></div></section>
+<section id="screen-gameover" class="screen"><div class="result-card"><div class="result-title gameover-title">GAME OVER</div><div class="result-level">Level <span id="over-level">1</span></div><p class="result-description">Lifeを使い切りました。</p><button id="btn-over-retry" class="primary-button">RETRY</button><button id="btn-over-levels" class="text-button">LEVEL SELECT</button></div></section>
+</main>
+
+<script src="js/euler.js"></script>
+<script src="js/generator.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+window.addEventListener("DOMContentLoaded", async () => {
+    await loadTemplates();   // JSON 読み込み完了を待つ
+    initApp();               // app.js が読み込まれた後に実行
+});
+</script>
+
+</body></html>
