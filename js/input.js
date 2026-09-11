@@ -26,7 +26,13 @@
         return { x: x, y: y };
     };
 
+    // input.js (down メソッドの先頭付近)
     Input.prototype.down = function(e){
+        // ★ iOS Safari のオーディオミュート解除（画面タッチの瞬間）
+        if (window.GameSound && typeof window.GameSound.unlock === "function") {
+            window.GameSound.unlock();
+        }
+
         if(this.pid !== null) return;
         e.preventDefault();
         this.pid = e.pointerId;
