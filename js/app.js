@@ -48,7 +48,7 @@ function initApp() {
 
     // ★ 50問ごとのページ切り替え ＆ 解放判定対応 grid()
     // ★ storage.js と完全に連携した grid()
-    var DEBUG_UNLOCK_ALL = true;
+    var DEBUG_UNLOCK_ALL = false;
 
     function grid(){
         var g = document.getElementById("level-grid");
