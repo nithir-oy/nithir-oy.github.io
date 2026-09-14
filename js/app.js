@@ -1,4 +1,4 @@
-// app.js
+// app.js（200問・50毎ページ送り・進行度ロック対応版）
 function initApp() {
     "use strict";
 
@@ -174,27 +174,8 @@ function initApp() {
     document.getElementById("btn-howto").onclick = function(){ show("howto"); };
     document.getElementById("btn-howto-back").onclick = function(){ show("title"); };
     document.getElementById("btn-levels-home").onclick = function(){ show("title"); };
-
-    // ★ RESTART ボタン：lifeを1消費してリスタート（残り1ならその場でゲームオーバー）
-    document.getElementById("btn-game-restart").onclick = function(){
-        if (engine.life > 1) {
-            engine.life--;
-            drawLife(engine.life);
-            
-            // 一度ミス判定（接続・現在の選択情報）をリセットして再ロード
-            if (typeof engine.resetCurrentLevel === "function") {
-                engine.resetCurrentLevel();
-            } else {
-                engine.load(engine.level);
-            }
-        } else {
-            engine.life = 0;
-            drawLife(0);
-            document.getElementById("over-level").textContent = current;
-            show("gameover");
-        }
-    };
-
+    // app.js 内の RESTART ボタン処理
+    document.getElementById("btn-game-restart").onclick = function(){ engine.restart(); };
     document.getElementById("btn-game-levels").onclick = function(){ grid(); show("levels"); };
     document.getElementById("btn-next").onclick = function(){
         const nextId = current + 1;
@@ -209,11 +190,11 @@ function initApp() {
         }
     };
     document.getElementById("btn-reset-data").onclick = function() {
-        if (confirm("これまでのクリア履歴を消去してLevel 1からやり直しますか？")) {
-            localStorage.removeItem("one-line-game-progress-v1");
-            currentPage = 1; // 1ページ目に戻す
-            grid();          // グリッド再描画
-            alert("データを初期化しました。");
+    if (confirm("これまでのクリア履歴を消去してLevel 1からやり直しますか？")) {
+        localStorage.removeItem("one-line-game-progress-v1");
+        currentPage = 1; // 1ページ目に戻す
+        grid();          // グリッド再描画
+        alert("データを初期化しました。");
         }
     };
     document.getElementById("btn-clear-levels").onclick = function(){ grid(); show("levels"); };

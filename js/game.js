@@ -238,6 +238,30 @@
         if (this.dragging) this.fail("操作がキャンセルされました");
     };
 
+    // ★ 追加：ライフを1消費してリスタートする処理
+    Engine.prototype.restart = function(){
+        if (this.transition) return;
+
+        this.life--;
+        this.ui(); // ライフ描画UIを更新
+
+        if (this.life <= 0){
+            this.transition = true;
+            if (this.cb.gameOver) this.cb.gameOver();
+        } else {
+            // ライフが残っていれば現在のレベルを初期状態に戻す
+            this.startNode = null;
+            this.currentNode = null;
+            this.used = {};
+            this.pathEdges = [];
+            this.edgeDirections = [];
+            this.dragging = false;
+            this.pointer = null;
+            this.started = false;
+            this.render();
+        }
+    };
+
     window.GameEngine = Engine;
 
 })();
