@@ -1,4 +1,4 @@
-// generator.js（テストコード完全削除版）
+// generator.js
 
 // グローバル変数
 var NODE_LAYOUTS = null;
@@ -12,18 +12,14 @@ window.loadTemplates = async function () {
     LEVEL_SCHEMES = await (await fetch("data/level-schemes.json")).json();
 };
 
-// ★ JSONベースのレベル生成（これだけ使う）
+// ★ JSONベースのレベル生成
 window.generateLevel = function (id) {
-    console.log("LEVEL_SCHEMES:", LEVEL_SCHEMES); // JSONが正しくロードされているか
-    
     if (!LEVEL_SCHEMES) {
         console.error("LEVEL_SCHEMES がロードされていません。");
         return null;
     }
 
     const scheme = LEVEL_SCHEMES[id - 1];
-    console.log("取得したscheme:", scheme);
-
     if (!scheme) {
         console.error(`id: ${id} に対応する scheme が見つかりません。`);
         return null;
@@ -37,20 +33,27 @@ window.generateLevel = function (id) {
         return null;
     }
 
-    const nodes = rawLayout.map((pt, index) => ({
-        x: pt.x,
-        y: pt.y
-    }));
+    // ノード属性のコピー（isForbidden, warpId なども残す）
+    const nodes = rawLayout.map((pt) => ({ ...pt }));
+
+    // ワープノード（warpId）同士のペア検出＆転送先インデックス（warpTarget）の事前バインド
+    const warpGroups = {};
+    nodes.forEach((n, idx) => {
+        if (n.warpId) {
+            if (!warpGroups[n.warpId]) warpGroups[n.warpId] = [];
+            warpGroups[n.warpId].push(idx);
+        }
+    });
+
+    Object.keys(warpGroups).forEach(warpId => {
+        const group = warpGroups[warpId];
+        if (group.length === 2) {
+            nodes[group[0]].warpTarget = group[1];
+            nodes[group[1]].warpTarget = group[0];
+        }
+    });
 
     const edges = rawPattern;
 
     return { id, nodes, edges };
 };
-
-
-// ★ テスト生成コードはすべて削除済み
-// generateTestLevel
-// getNodeCount
-// generateNodes
-// generateEdges
-// → 完全に不要なので削除
