@@ -62,7 +62,7 @@ function initApp() {
     }
 
     // ★ 50問ごとのページ切り替え ＆ 解放判定対応 grid()
-    var DEBUG_UNLOCK_ALL = false;
+    var DEBUG_UNLOCK_ALL = true;
 
     function grid(){
         var g = document.getElementById("level-grid");
