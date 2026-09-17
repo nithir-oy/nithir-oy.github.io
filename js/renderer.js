@@ -61,6 +61,10 @@
         };
     };
 
+    /**
+     * 矢印（▲）の描画用ヘルパー関数
+     * 境界線（黒縁）を追加して視認性を向上
+     */
     Renderer.prototype.drawArrow = function(ctx, from, to, color) {
         var midX = (from.x + to.x) / 2;
         var midY = (from.y + to.y) / 2;
@@ -70,13 +74,23 @@
         ctx.save();
         ctx.translate(midX, midY);
         ctx.rotate(angle);
-        ctx.fillStyle = color;
+        
+        // 矢印のパスを作成
         ctx.beginPath();
         ctx.moveTo(arrowSize, 0);
         ctx.lineTo(-arrowSize, -arrowSize / 1.5);
         ctx.lineTo(-arrowSize, arrowSize / 1.5);
         ctx.closePath();
+
+        // 塗りつぶし
+        ctx.fillStyle = color;
         ctx.fill();
+
+        // ★ 黒の境界線（エッジ）を追加
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.restore();
     };
 
@@ -100,11 +114,13 @@
             var currentPasses = usedCount[i] || 0;
             var remainingPasses = Math.max(0, meta.maxPasses - currentPasses);
 
-            var strokeColor = "#d1d5dc"; // 未通過（通常グレー）
+            // ★ 色覚バリアフリーに対応した明確なカラー設定
+            var strokeColor = "#d1d5dc"; // 0回通過（未通過）：明るいグレー
+
             if (remainingPasses === 0) {
-                strokeColor = "#7657c5"; // 通過完了（紫）
-            } else if (currentPasses > 0) {
-                strokeColor = "#a894e0"; // 薄紫
+                strokeColor = "#7657c5"; // 全通過完了：深いパープル（紫）
+            } else if (currentPasses === 1) {
+                strokeColor = "#00d4ff"; // ダブルエッジ1回目通過：鮮やかなシアン（水色）
             }
 
             // A: ダブルエッジ（未通過 = 2重線描画）
@@ -128,7 +144,7 @@
                 c.lineTo(b.x - offsetX, b.y - offsetY);
                 c.stroke();
             } 
-            // B: 1重線描画
+            // B: 1重線描画（通常線・1回通過後のダブルエッジ・全通過完了線）
             else {
                 c.lineWidth = (remainingPasses === 0) ? 8 : 7;
                 c.strokeStyle = strokeColor;
@@ -142,7 +158,9 @@
             if (meta.isDirected) {
                 var arrowFrom = (meta.dir === 1) ? a : b;
                 var arrowTo   = (meta.dir === 1) ? b : a;
-                var arrowColor = (remainingPasses === 0) ? "#ffffff" : "#4a5568";
+                
+                // ★ 通過前は「くっきり見易いイエロー」、通過後は「ホワイト」に指定
+                var arrowColor = (remainingPasses === 0) ? "#ffffff" : "#ffd700";
 
                 this.drawArrow(c, arrowFrom, arrowTo, arrowColor);
             }

@@ -11,6 +11,7 @@
   --text-main: #f0f4f8;
   --text-muted: #8a99ad;
   --danger: #ff0055;
+  --danger2: #ffd700;
 }
 
 html, body {
@@ -323,12 +324,16 @@ h2 {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 900;
-  color: var(--danger);
-  text-shadow: 0 0 20px var(--danger);
+  color: var(--danger2);
+  text-shadow: 0 0 20px var(--danger2);
   opacity: 0;
   transition: opacity 0.15s;
+  padding: 0 24px;         /* 画面左右に最低24pxの余白を確保 */
+  box-sizing: border-box;  /* paddingを要素全体の幅に含める */
+  text-align: center;      /* 長いメッセージが折り返した際も中央寄せにする */
+  word-break: break-word;  /* 単語の途中でも安全に折り返す */
 }
 
 .game-message.show { opacity: 1; }

@@ -148,6 +148,9 @@
         if (this.cb.failure) this.cb.failure(reason, this.life);
 
         var self = this;
+        // ★ ライフが0（ゲームオーバー）の場合は表示時間を長く設定（1000ms）
+        var delay = (self.life <= 0) ? 1000 : 800;
+
         setTimeout(function(){
             if (self.life <= 0){
                 self.transition = true;
@@ -155,7 +158,7 @@
             } else {
                 self.resetAttempt();
             }
-        }, 400);
+        }, delay);
     };
 
     Engine.prototype.pointerDown = function(pos){
