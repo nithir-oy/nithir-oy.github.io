@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Edge Pattern Checker (JSON)</title>
 <script src="js/util.js"></script>
-<script src="js/euler.js"></script>
 <script src="js/checker.js"></script>
 <script src="js/pattern_generator_GM.js"></script>
 <script src="js/pattern_render.js"></script>
@@ -12,31 +11,22 @@
 
 <style>
 body { font-family: sans-serif; padding: 20px; }
-textarea { width: 100%; height: 260px; font-size: 14px; }
-button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+button { padding: 10px 20px; font-size: 16px; margin-top: 10px; cursor: pointer; }
 pre { background: #f0f0f0; padding: 10px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
-<h2>エッジパターン 生成ツール</h2>
+<h2>エッジパターン 生成ツール (ギミック対応版)</h2>
 
 <button id="generate50Btn">200問を生成</button>
-
-<!--
-<div style="margin-top:20px;">
-  <button id="previewSimpleBtn">プレビュー（シンプル）</button>
-  <button id="previewGameBtn">プレビュー（ゲーム風）</button>
-</div>
--->
 
 <div style="margin-top:20px;">
   <button id="prevLevelBtn">戻る</button>
   <button id="nextLevelBtn">次へ</button>
 </div>
 
-<!-- 既存の「戻る」「次へ」ボタンの周辺に追加 -->
-<div class="level-jump-container" style="display: inline-flex; align-items: center; gap: 8px; margin-left: 16px;">
+<div class="level-jump-container" style="display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;">
   <input type="number" id="levelInput" min="1" max="200" placeholder="Lv" style="width: 60px; padding: 4px 8px; text-align: center;">
   <button id="jumpBtn" onclick="jumpToLevel()" style="padding: 4px 12px;">表示</button>
 </div>
@@ -47,36 +37,47 @@ pre { background: #f0f0f0; padding: 10px; white-space: pre-wrap; }
 </div>
 
 <h3 id="levelDisplay">LEVEL -</h3>
-<canvas id="previewCanvas" width="400" height="400"
-        style="border:1px solid #ccc;margin-top:20px;"></canvas>
+<canvas id="previewCanvas" width="400" height="400" style="border:1px solid #ccc;margin-top:10px;"></canvas>
 
-<div id="infoPanel" style="
-  display:inline-block;
-  vertical-align:top;
-  margin-left:20px;
-  width:300px;
-  font-size:14px;
-  line-height:1.4;
-">
+<div id="infoPanel" style="display:inline-block; vertical-align:top; margin-left:20px; width:340px; font-size:14px;">
   <h3>Level情報</h3>
   <div><strong>Level:</strong> <span id="infoLevel">-</span></div>
 
   <h4>Edge Pattern</h4>
-  <pre id="infoEdges" style="background:#f7f7f7; padding:10px;"></pre>
+  <pre id="infoEdges" style="background:#f7f7f7; padding:10px; max-height: 150px; overflow-y: auto;"></pre>
 
   <h4>Node Layout</h4>
-  <pre id="infoNodes" style="background:#f7f7f7; padding:10px;"></pre>
+  <pre id="infoNodes" style="background:#f7f7f7; padding:10px; max-height: 150px; overflow-y: auto;"></pre>
 </div>
 <br>
 
-<div class="export-buttons">
+<div class="export-buttons" style="margin-top: 20px;">
   <button id="exportEdgePatternsBtn">edgePatterns エクスポート</button>
   <button id="exportNodeLayoutsBtn">nodeLayouts エクスポート</button>
   <button id="exportLevelSchemesBtn">levelSchemes エクスポート</button>
 </div>
 
+<hr style="margin: 30px 0;">
+
+<div id="checkToolSection">
+  <h2>エッジパターン チェックツール</h2>
+  <button id="runCheckBtn">パターンチェック実行</button>
+  
+  <div id="checkResultOutput" style="margin-top: 10px; font-size: 16px;"></div>
+
+  <div style="display: flex; gap: 20px; margin-top: 15px; align-items: flex-start;">
+    <div>
+      <canvas id="checkPreviewCanvas" width="300" height="300" style="border: 1px solid #ccc; background: #f9f9f9;"></canvas>
+    </div>
+
+    <div style="flex: 1;">
+      <strong>クリアパターン一覧:</strong>
+      <pre id="clearPathsOutput" style="background: #2d3748; color: #63b3ed; padding: 10px; border-radius: 5px; max-height: 280px; overflow-y: auto; font-family: monospace;"></pre>
+    </div>
+  </div>
+</div>
+
 <script>
-// check.html 内に残すのは UI 操作だけ
 let currentLevel = 1;
 let layoutDirty = false;
 let currentEdges = [];
@@ -89,61 +90,40 @@ document.getElementById("generate50Btn").onclick = () => {
   currentLevel = 1;
   layoutDirty = false;
 
-  // ★ 生成結果が本当に入っているか確認してから表示
   if (edgePatterns["P1"] && nodeLayouts["L1"]) {
     loadLevelPreview(currentLevel);
   } else {
-    console.error("P1 または L1 が生成されていません");
-    alert("生成に失敗したよ…！");
+    alert("生成に失敗しました");
     return;
   }
 
-  alert("200問を生成！");
+  alert("200問の生成が完了しました！");
 };
-
-// document.getElementById("previewGameBtn").onclick = () => {
-//  renderPreviewGame();
-//};
 
 function loadLevelPreview(level) {
   currentEdges = edgePatterns["P" + level];
   currentNodes = nodeLayouts["L" + level];
 
-  // レベル表示
   document.getElementById("levelDisplay").textContent = "LEVEL " + level;
   document.getElementById("infoLevel").textContent = level;
 
-  // エッジパターン表示
-  // エッジパターン表示（1行でコンパクトに）
-  document.getElementById("infoEdges").textContent =
-  "[" + currentEdges.map(e => `[${e[0]},${e[1]}]`).join(",") + "]";
+  document.getElementById("infoEdges").textContent = JSON.stringify(currentEdges);
+  document.getElementById("infoNodes").textContent = JSON.stringify(currentNodes, null, 2);
 
-  // ノードレイアウト表示
-  document.getElementById("infoNodes").textContent =
-    JSON.stringify(currentNodes, null, 2);
-
-  // ★ ボタンに頼らず、直接描画関数を呼び出す
-    if (typeof renderPreviewGame === "function") {
+  if (typeof renderPreviewGame === "function") {
     renderPreviewGame();
   }
-  //  renderPreviewGame(); // デフォルトはゲーム風
 }
 
 document.getElementById("nextLevelBtn").onclick = () => {
-  if (layoutDirty) {
-    alert("レイアウトが未採用です！");
-    return;
-  }
+  if (layoutDirty) { alert("レイアウトが未採用です！"); return; }
   if (currentLevel >= 200) return;
   currentLevel++;
   loadLevelPreview(currentLevel);
 };
 
 document.getElementById("prevLevelBtn").onclick = () => {
-  if (layoutDirty) {
-    alert("レイアウトが未採用です！");
-    return;
-  }
+  if (layoutDirty) { alert("レイアウトが未採用です！"); return; }
   if (currentLevel <= 1) return;
   currentLevel--;
   loadLevelPreview(currentLevel);
@@ -152,413 +132,135 @@ document.getElementById("prevLevelBtn").onclick = () => {
 function jumpToLevel() {
   const input = document.getElementById('levelInput');
   const targetLevel = parseInt(input.value, 10);
-
-  // 入力値のバリデーション（1?200）
   if (isNaN(targetLevel) || targetLevel < 1 || targetLevel > 200) {
-    alert('1 ? 200 のレベル番号を入力してください。');
+    alert('1 ～ 200 のレベル番号を入力してください。');
     return;
   }
-
-  // 現在レベルを更新して表示
   currentLevel = targetLevel;
   loadLevelPreview(currentLevel);
 }
 
-// Enterキー入力でも「表示」を実行
-document.getElementById('levelInput')?.addEventListener('keypress', function(e) {
-  if (e.key === 'Enter') {
-    jumpToLevel();
-  }
-});
-
-// ---------------------------------------------------------
-// 現在選択されているレベルの情報を取得するヘルパー
-// ---------------------------------------------------------
-function getCurrentLevelId() {
-  // レベル選択UI（<select id="levelSelect"> や <input id="levelInput"> など）から取得
-  const levelSelect = document.getElementById("levelSelect") || document.getElementById("levelInput");
-  return levelSelect ? parseInt(levelSelect.value, 10) : 1;
-}
-
-// ---------------------------------------------------------
-// 「このレベルのレイアウトを再生成」ボタンの処理
-// ---------------------------------------------------------
 document.getElementById("regenLayoutBtn").onclick = () => {
   const levelId = currentLevel;
   const params = difficultyCurve(levelId);
 
   let isValid = false;
-  let newNodes = null;
-  let newEdges = null;
-  let newScheme = null;
-  let attempts = 0;
+  let newNodes = null, newEdges = null, attempts = 0;
 
-  // 現在のレベルだけを対象に再生成・検証を行う
-  while (!isValid && attempts < 200) {
+  while (!isValid && attempts < 50) {
     attempts++;
     newEdges = EdgePatternGenerator(levelId, params);
-    newNodes = NodeLayoutGenerator(levelId, params);
-    newScheme = LevelSchemeAssembler(levelId, newEdges, newNodes, params);
+    newNodes = NodeLayoutGenerator(levelId, params, newEdges);
+    const scheme = LevelSchemeAssembler(levelId, newEdges, newNodes, params);
 
-    const check = validateSingleLevel(newScheme, attempts);
-    if (check.valid) {
-      isValid = true;
-    }
+    const check = validateSingleLevel(scheme);
+    if (check.valid) isValid = true;
   }
 
   if (isValid) {
-    // 1. 画面表示用の一時変数を新レイアウトで上書き
     currentEdges = newEdges;
     currentNodes = newNodes;
-
-    // 2. テキスト情報の更新（UI表示）
-    document.getElementById("infoEdges").textContent =
-      "[" + currentEdges.map(e => `[${e[0]},${e[1]}]`).join(",") + "]";
-    document.getElementById("infoNodes").textContent =
-      JSON.stringify(currentNodes, null, 2);
-
-    // 3. 画面の再描画
+    document.getElementById("infoEdges").textContent = JSON.stringify(currentEdges);
+    document.getElementById("infoNodes").textContent = JSON.stringify(currentNodes, null, 2);
     renderPreviewGame();
-
-    // 4. 未採用フラグを立てる（「レイアウトが未採用です！」の警告を機能させる）
     layoutDirty = true;
-
-    console.log(`Level ${levelId} のレイアウトを再生成しました（未採用状態）。`);
   } else {
-    alert(`Level ${levelId} の再生成に失敗しました。もう一度お試しください。`);
+    alert("再生成に失敗しました。再試行してください。");
   }
 };
 
-// ---------------------------------------------------------
-// 「このレイアウトを採用する」ボタンの処理
-// ---------------------------------------------------------
 document.getElementById("acceptLayoutBtn").onclick = () => {
   if (!layoutDirty) {
-    alert("現在のレイアウトは既に採用済みか、変更されていません。");
+    alert("現在のレイアウトは既に採用済みです。");
     return;
   }
-
-  const patternKey = "P" + currentLevel;
-  const layoutKey = "L" + currentLevel;
-
-  // 1. グローバルデータストア（エクスポート対象）に反映
-  if (typeof edgePatterns !== "undefined") {
-    edgePatterns[patternKey] = currentEdges;
-  }
-  if (typeof nodeLayouts !== "undefined") {
-    nodeLayouts[layoutKey] = currentNodes;
-  }
-  if (typeof levelSchemes !== "undefined") {
-    const params = difficultyCurve(currentLevel);
-    const newScheme = LevelSchemeAssembler(currentLevel, currentEdges, currentNodes, params);
-    const targetIdx = levelSchemes.findIndex(s => s.id === currentLevel);
-    if (targetIdx !== -1) {
-      levelSchemes[targetIdx] = newScheme;
-    } else {
-      levelSchemes.push(newScheme);
-    }
-  }
-
-  // 2. フラグを解除して採用完了
+  edgePatterns["P" + currentLevel] = currentEdges;
+  nodeLayouts["L" + currentLevel] = currentNodes;
   layoutDirty = false;
-
-  alert(`LEVEL ${currentLevel} のレイアウトを採用・保存しました！`);
+  alert(`LEVEL ${currentLevel} のレイアウトを採用しました！`);
 };
-</script>
 
-<script>
-// ---------------------------------------------------------
-// ファイルダウンロード用ヘルパー関数
-// ---------------------------------------------------------
+// JSONダウンロード関数
 function downloadJsonFile(filename, content) {
   const blob = new Blob([content], { type: "application/json;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
-  document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// ---------------------------------------------------------
-// 1. edgePatterns の整形（1エッジごとに1行）
-// ---------------------------------------------------------
-function formatEdgePatterns(patterns) {
-  const keys = Object.keys(patterns);
-  const items = keys.map(key => {
-    const edges = patterns[key];
-    const edgeStrings = edges.map(e => `[${e[0]},${e[1]}]`);
-    return `  "${key}": [\n    ${edgeStrings.join(",")}\n  ]`;
-  });
-  return `{\n${items.join(",\n\n")}\n}`;
-}
+document.getElementById("exportEdgePatternsBtn").onclick = () => {
+  downloadJsonFile("edge-patterns.json", JSON.stringify(edgePatterns, null, 2));
+};
+document.getElementById("exportNodeLayoutsBtn").onclick = () => {
+  downloadJsonFile("node-layouts.json", JSON.stringify(nodeLayouts, null, 2));
+};
+document.getElementById("exportLevelSchemesBtn").onclick = () => {
+  downloadJsonFile("level-schemes.json", JSON.stringify(levelSchemes, null, 2));
+};
 
-// ---------------------------------------------------------
-// 2. nodeLayouts の整形（1ノードごとに1行）
-// ---------------------------------------------------------
-function formatNodeLayouts(layouts) {
-  const keys = Object.keys(layouts);
-  const items = keys.map(key => {
-    const nodes = layouts[key];
-    const nodeStrings = nodes.map(n => 
-      `    { "x": ${n.x.toFixed(2)}, "y": ${n.y.toFixed(2)} }`
-    );
-    return `  "${key}": [\n${nodeStrings.join(",\n")}\n  ]`;
-  });
-  return `{\n${items.join(",\n\n")}\n}`;
-}
+// チェック実行ボタンの処理
+document.getElementById("runCheckBtn").onclick = () => {
+  if (!currentEdges || !currentNodes) return;
 
-// ---------------------------------------------------------
-// 3. levelSchemes の整形（1レベルごとに1行）
-// ---------------------------------------------------------
-function formatLevelSchemes(schemes) {
-  const items = schemes.map(s => {
-    // schemeオブジェクトから必要なプロパティを取得
-    const layout = s.layoutId || `L${s.id}`;
-    const pattern = s.patternId || `P${s.id}`;
-    return `  { "id": ${s.id}, "layout": "${layout}", "pattern": "${pattern}" }`;
-  });
-  return `[\n${items.join(",\n")}\n]`;
-}
+  // 1. 一筆書き判定
+  const result = checkPattern(currentNodes, currentEdges);
+  const resultEl = document.getElementById("checkResultOutput");
 
-// ---------------------------------------------------------
-// イベントリスナー設定
-// ---------------------------------------------------------
-document.getElementById("exportEdgePatternsBtn").addEventListener("click", () => {
-  const jsonText = formatEdgePatterns(edgePatterns);
-  downloadJsonFile("edge-patterns.json", jsonText);
-});
-
-document.getElementById("exportNodeLayoutsBtn").addEventListener("click", () => {
-  const jsonText = formatNodeLayouts(nodeLayouts);
-  downloadJsonFile("node-layouts.json", jsonText);
-});
-
-document.getElementById("exportLevelSchemesBtn").addEventListener("click", () => {
-  const jsonText = formatLevelSchemes(levelSchemes);
-  downloadJsonFile("level-schemes.json", jsonText);
-});
-</script>
-
-<br>
-<br>
-<br>
-<!-- エッジパターンチェックツールエリア -->
-<div id="checkToolSection">
-  <h2>エッジパターン チェックツール</h2>
-  <button id="runCheckBtn">パターンチェック</button>
-  
-  <!-- 検証結果判定 -->
-  <div id="checkResultOutput" style="margin-top: 10px;"></div>
-
-  <!-- 描画＆クリアパターン並列エリア -->
-  <div style="display: flex; gap: 20px; margin-top: 15px; align-items: flex-start;">
-    <!-- ５．番号付きプレビュー描画Canvas -->
-    <div>
-      <canvas id="checkPreviewCanvas" width="300" height="300" style="border: 1px solid #ccc; background: #f9f9f9;"></canvas>
-    </div>
-
-    <!-- ６．クリアパターン全表示領域 -->
-    <div style="flex: 1;">
-      <strong>クリアパターン一覧:</strong>
-      <pre id="clearPathsOutput" style="background: #2d3748; color: #63b3ed; padding: 10px; border-radius: 5px; max-height: 280px; overflow-y: auto; font-family: monospace;"></pre>
-    </div>
-  </div>
-</div>
-
-<script>
-// ---------------------------------------------------------
-// エッジパターンチェックツール (強化版)
-// ---------------------------------------------------------
-
-// 1. 全クリアパターン（一筆書きの全経路）をDFSで探索する関数 (フリーズ防止ガード追加版)
-function findAllEulerPaths(nodes, edges) {
-  const N = nodes.length;
-  const numEdges = edges.length;
-  const paths = [];
-
-  // 各ノードの隣接リストを作成
-  const adj = Array.from({ length: N }, () => []);
-  edges.forEach((edge, index) => {
-    adj[edge[0]].push({ to: edge[1], edgeIdx: index });
-    adj[edge[1]].push({ to: edge[0], edgeIdx: index });
-  });
-
-  // フリーズ防止用の探索制限カウンター
-  let totalSteps = 0;
-  const MAX_STEPS = 100000;      // 最大探索ステップ数
-  const MAX_FIND_PATHS = 50;     // 発見する最大経路数（10件表示できれば十分なため）
-  let isThrottled = false;
-
-  // 全てのノードを始点候補として試行
-  for (let startNode = 0; startNode < N; startNode++) {
-    if (isThrottled) break;
-    const visitedEdges = new Array(numEdges).fill(false);
-
-    function dfs(currNode, currentPath) {
-      totalSteps++;
-
-      // 探索数が上限を超えたら強制中断（ブラウザフリーズを回避）
-      if (totalSteps > MAX_STEPS || paths.length >= MAX_FIND_PATHS) {
-        isThrottled = true;
-        return;
-      }
-
-      if (currentPath.length === numEdges + 1) {
-        paths.push([...currentPath]);
-        return;
-      }
-
-      for (let neighbor of adj[currNode]) {
-        if (isThrottled) return;
-
-        if (!visitedEdges[neighbor.edgeIdx]) {
-          visitedEdges[neighbor.edgeIdx] = true;
-          currentPath.push(neighbor.to);
-
-          dfs(neighbor.to, currentPath);
-
-          // バックトラック
-          currentPath.pop();
-          visitedEdges[neighbor.edgeIdx] = false;
-        }
-      }
-    }
-
-    dfs(startNode, [startNode]);
+  if (result.ok) {
+    resultEl.innerHTML = `<span style="color: green; font-weight: bold;">【検証 PASS】 一筆書き可能な経路が存在します</span>`;
+  } else {
+    resultEl.innerHTML = `<span style="color: red; font-weight: bold;">【検証 FAIL】 ${result.reason}</span>`;
   }
 
-  // 逆順で重複する経路（A->B->C と C->B->A）を取り除く
-  const uniquePaths = [];
-  const seenStr = new Set();
-
-  for (let p of paths) {
-    const strForward = p.join("->");
-    const strReverse = [...p].reverse().join("->");
-    if (!seenStr.has(strForward) && !seenStr.has(strReverse)) {
-      seenStr.add(strForward);
-      uniquePaths.push(p);
-    }
+  // 2. 解の取得（最大10パターン）
+  const paths = findAllEulerPaths(currentNodes, currentEdges, 10);
+  const pathContainer = document.getElementById("clearPathsOutput");
+  if (paths.length === 0) {
+    pathContainer.textContent = "クリア経路は見つかりませんでした。";
+  } else {
+    const lines = paths.map((p, idx) => `Path ${idx + 1}: ${p.join(" → ")}`);
+    pathContainer.textContent = lines.join("\n");
   }
 
-  return uniquePaths;
-}
+  // 3. サブCanvas（checkPreviewCanvas）の描画
+  const canvas = document.getElementById("checkPreviewCanvas");
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// 2. 番号付きノードのプレビュー描画処理
-function drawNumberedPreview(canvasId, nodes, edges) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
+    // エッジ描画
+    currentEdges.forEach(([a, b, opt = {}]) => {
+      const na = currentNodes[a];
+      const nb = currentNodes[b];
+      if (!na || !nb) return;
+      ctx.beginPath();
+      ctx.moveTo(na.x * canvas.width, na.y * canvas.height);
+      ctx.lineTo(nb.x * canvas.width, nb.y * canvas.height);
+      ctx.strokeStyle = opt.count === 2 ? "#3182ce" : "#d1d5dc";
+      ctx.lineWidth = opt.count === 2 ? 6 : 3;
+      ctx.stroke();
+    });
 
-  ctx.clearRect(0, 0, width, height);
+    // ノード描画
+    currentNodes.forEach((n, idx) => {
+      const x = n.x * canvas.width;
+      const y = n.y * canvas.height;
+      ctx.beginPath();
+      ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = n.isForbidden ? "#a0aec0" : (n.warpId ? "#805ad5" : "#ef5b46");
+      ctx.fill();
 
-  // 描画用の座標計算（余白考慮）
-  const padding = 30;
-  const getX = (x) => padding + x * (width - padding * 2);
-  const getY = (y) => padding + y * (height - padding * 2);
-
-  // エッジ（線）の描画
-  ctx.strokeStyle = "#4A5568";
-  ctx.lineWidth = 2;
-  for (let e of edges) {
-    const u = nodes[e[0]];
-    const v = nodes[e[1]];
-    if (!u || !v) continue;
-    ctx.beginPath();
-    ctx.moveTo(getX(u.x), getY(u.y));
-    ctx.lineTo(getX(v.x), getY(v.y));
-    ctx.stroke();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(idx, x, y);
+    });
   }
-
-  // ノード（円と番号）の描画
-  nodes.forEach((n, idx) => {
-    const cx = getX(n.x);
-    const cy = getY(n.y);
-
-    // 円
-    ctx.fillStyle = "#3182CE";
-    ctx.beginPath();
-    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 枠線
-    ctx.strokeStyle = "#FFFFFF";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // ノード番号
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 12px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(idx, cx, cy);
-  });
-}
-
-// 3. 「パターンチェック」ボタンクリック時イベント
-const checkBtn = document.getElementById("runCheckBtn"); // HTML側のボタンIDに合わせて変更
-if (checkBtn) {
-  checkBtn.onclick = () => {
-    if (!currentEdges || !currentNodes || currentEdges.length === 0) {
-      alert("チェック対象のデータがありません。「200問を生成する」を実行してください。");
-      return;
-    }
-
-    const levelId = currentLevel;
-    const params = difficultyCurve(levelId);
-    const scheme = LevelSchemeAssembler(levelId, currentEdges, currentNodes, params);
-
-    // 1. 生成時と同じ検証ロジックでチェック
-    const checkResult = validateSingleLevel(scheme, 0);
-
-    // チェック結果のテキスト表示
-    const resultEl = document.getElementById("checkResultOutput");
-    if (resultEl) {
-      if (checkResult.valid) {
-        resultEl.innerHTML = `<span style="color: green; font-weight: bold;">【検証 PASS】 一筆書き可能・レイアウト正常</span>`;
-      } else {
-        resultEl.innerHTML = `<span style="color: red; font-weight: bold;">【検証 FAIL】 ${checkResult.reason}</span>`;
-      }
-    }
-
-    // 2. 番号付き図形プレビューの描画
-    drawNumberedPreview("checkPreviewCanvas", currentNodes, currentEdges);
-
-    // 3. クリアパターンの表示制御（最大10件 ＋ 総数表示）
-    const paths = findAllEulerPaths(currentNodes, currentEdges);
-    const pathContainer = document.getElementById("clearPathsOutput");
-
-    if (pathContainer) {
-      if (paths.length === 0) {
-        pathContainer.textContent = "クリアパターンが見つかりませんでした。\n\n総パターン数: 0";
-      } else {
-        // 先頭10件のみを抽出
-        const maxDisplay = 10;
-        const displayPaths = paths.slice(0, maxDisplay);
-
-        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const lines = displayPaths.map((path, idx) => {
-          const label = alphabet[idx % 26] + (idx >= 26 ? Math.floor(idx / 26) : "");
-          return `${label}: ${path.join(" → ")}`;
-        });
-
-        // 10件を超える場合は「...」を表示
-        if (paths.length > maxDisplay) {
-          lines.push("...");
-        }
-
-        // テキスト枠内に総パターン数もまとめて表示
-        lines.push(`\n総パターン数: ${paths.length}`);
-
-        pathContainer.textContent = lines.join("\n");
-      }
-    }
-  };
-}
+};
 </script>
 </body>
 </html>

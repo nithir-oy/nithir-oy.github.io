@@ -14,19 +14,33 @@ window.loadTemplates = async function () {
 
 // ★ JSONベースのレベル生成（これだけ使う）
 window.generateLevel = function (id) {
+    console.log("LEVEL_SCHEMES:", LEVEL_SCHEMES); // JSONが正しくロードされているか
+    
+    if (!LEVEL_SCHEMES) {
+        console.error("LEVEL_SCHEMES がロードされていません。");
+        return null;
+    }
+
     const scheme = LEVEL_SCHEMES[id - 1];
-    if (!scheme) return null;
+    console.log("取得したscheme:", scheme);
 
-    const rawLayout  = NODE_LAYOUTS[scheme.layout];   // L1 → [{x,y},...]
-    const rawPattern = EDGE_PATTERNS[scheme.pattern]; // P1 → [[from,to],...]
+    if (!scheme) {
+        console.error(`id: ${id} に対応する scheme が見つかりません。`);
+        return null;
+    }
 
-    if (!rawLayout || !rawPattern) return null;
+    const rawLayout  = NODE_LAYOUTS[scheme.layout];
+    const rawPattern = EDGE_PATTERNS[scheme.pattern];
+
+    if (!rawLayout || !rawPattern) {
+        console.error("layoutまたはpatternが存在しません:", { rawLayout, rawPattern });
+        return null;
+    }
 
     const nodes = rawLayout.map((pt, index) => ({
         x: pt.x,
         y: pt.y
-        }));
-
+    }));
 
     const edges = rawPattern;
 

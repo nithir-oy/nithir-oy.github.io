@@ -1,6 +1,15 @@
 // renderer.js
+
 (function(){
     "use strict";
+
+    // 色覚バリアフリーに対応したワープノード用カラー＆記号パレット（最大4ペア想定）
+    var WARP_PALETTE = [
+        { color: "#007AFF", symbol: "★" }, // ペア0: 青 + ★
+        { color: "#FF9500", symbol: "♥" }, // ペア1: オレンジ/黄 + ♥
+        { color: "#FF2D55", symbol: "◆" }, // ペア2: 赤 + ◆
+        { color: "#5856D6", symbol: "♠" }  // ペア3: 紫 + ♠
+    ];
 
     function Renderer(canvas){
         this.canvas = canvas;
@@ -42,83 +51,211 @@
         };
     };
 
+    /**
+     * 矢印（▲）の描画用ヘルパー関数
+     */
+    Renderer.prototype.drawArrow = function(ctx, from, to, color) {
+        var midX = (from.x + to.x) / 2;
+        var midY = (from.y + to.y) / 2;
+        var angle = Math.atan2(to.y - from.y, to.x - from.x);
+        var arrowSize = 9;
+
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(arrowSize, 0);
+        ctx.lineTo(-arrowSize, -arrowSize / 1.5);
+        ctx.lineTo(-arrowSize, arrowSize / 1.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    };
+
     Renderer.prototype.draw = function(s){
         var c = this.ctx, p = this.problem;
         if(!p) return;
+
+        var usedCount = s.usedCount || {};
 
         c.clearRect(0, 0, this.width, this.height);
         c.lineCap = "round";
         c.lineJoin = "round";
 
-        // 1. グレーの線（全エッジ）
-        c.lineWidth = 7;
-        c.strokeStyle = "#d1d5dc";
+        // 1. エッジ（線）の描画
         for(var i = 0; i < p.edges.length; i++){
             var e = p.edges[i],
                 a = this.point(p.nodes[e[0]]),
                 b = this.point(p.nodes[e[1]]);
-            c.beginPath();
-            c.moveTo(a.x, a.y);
-            c.lineTo(b.x, b.y);
-            c.stroke();
+
+            var edgeType = e.type || e[2] || "normal";
+            var maxPasses = (edgeType === "double") ? 2 : 1;
+            var currentPasses = usedCount[i] || 0;
+            var remainingPasses = Math.max(0, maxPasses - currentPasses);
+
+            // 線の基本色設定
+            var strokeColor = "#d1d5dc"; // 未通過（通常グレー）
+            if (remainingPasses === 0) {
+                strokeColor = "#7657c5"; // 通過完了（紫）
+            } else if (currentPasses > 0) {
+                strokeColor = "#a894e0"; // ダブルエッジの1通過目（薄紫）
+            }
+
+            // A: ダブルエッジ（未通過 = 2重線描画）
+            if (edgeType === "double" && remainingPasses === 2) {
+                var dx = b.x - a.x;
+                var dy = b.y - a.y;
+                var len = Math.hypot(dx, dy) || 1;
+                var offsetX = (-dy / len) * 3.5;
+                var offsetY = (dx / len) * 3.5;
+
+                c.lineWidth = 3.5;
+                c.strokeStyle = strokeColor;
+
+                // 1本目の線
+                c.beginPath();
+                c.moveTo(a.x + offsetX, a.y + offsetY);
+                c.lineTo(b.x + offsetX, b.y + offsetY);
+                c.stroke();
+
+                // 2本目の線
+                c.beginPath();
+                c.moveTo(a.x - offsetX, a.y - offsetY);
+                c.lineTo(b.x - offsetX, b.y - offsetY);
+                c.stroke();
+            } 
+            // B: 通常線・1度通ったダブルエッジ・通過完了線（1重線描画）
+            else {
+                c.lineWidth = (remainingPasses === 0) ? 8 : 7;
+                c.strokeStyle = strokeColor;
+                c.beginPath();
+                c.moveTo(a.x, a.y);
+                c.lineTo(b.x, b.y);
+                c.stroke();
+            }
+
+            // C: 一方通行エッジ（矢印描画）
+            if (edgeType === "directed") {
+                var dir = (e.direction !== undefined) ? e.direction : (e[3] !== undefined ? e[3] : 1);
+                var arrowFrom = (dir === 1) ? a : b;
+                var arrowTo   = (dir === 1) ? b : a;
+                var arrowColor = (remainingPasses === 0) ? "#ffffff" : "#4a5568";
+
+                this.drawArrow(c, arrowFrom, arrowTo, arrowColor);
+            }
         }
 
-        // 2. 紫の線（通過済みエッジ）
-        c.lineWidth = 8;
-        c.strokeStyle = "#7657c5";
-        for(var j = 0; j < s.pathEdges.length; j++){
-            var pe = p.edges[s.pathEdges[j]],
-                pa = this.point(p.nodes[pe[0]]),
-                pb = this.point(p.nodes[pe[1]]),
-                from = s.edgeDirections[j] === pe[0] ? pa : pb,
-                to   = s.edgeDirections[j] === pe[0] ? pb : pa;
-
-            c.beginPath();
-            c.moveTo(from.x, from.y);
-            c.lineTo(to.x, to.y);
-            c.stroke();
-        }
-
-        // 3. ドラッグ中の線
+        // 2. ドラッグ中の線描画
         if (s.dragging && s.pointer != null && s.currentNode != null && s.currentNode >= 0) {
             var cur = this.point(p.nodes[s.currentNode]);
+            c.lineWidth = 8;
+            c.strokeStyle = "#7657c5";
             c.beginPath();
             c.moveTo(cur.x, cur.y);
             c.lineTo(s.pointer.x, s.pointer.y);
             c.stroke();
         }
 
-        // ★ 1. 接続可能ノードの算出（現在地から未通過エッジでつながる隣接ノード）
+        // 3. 接続可能ノードの算出
         var connectableNodes = {};
         if (s.currentNode !== null && s.currentNode >= 0) {
             for (var eIdx = 0; eIdx < p.edges.length; eIdx++) {
-                if (s.pathEdges && s.pathEdges.indexOf(eIdx) !== -1) continue;
+                var edgeInfo = p.edges[eIdx];
+                var u = edgeInfo[0], v = edgeInfo[1];
+                var eType = edgeInfo.type || edgeInfo[2] || "normal";
+                var maxP = (eType === "double") ? 2 : 1;
+                var curP = usedCount[eIdx] || 0;
 
-                var edge = p.edges[eIdx];
-                if (edge[0] === s.currentNode) {
-                    connectableNodes[edge[1]] = true;
-                } else if (edge[1] === s.currentNode) {
-                    connectableNodes[edge[0]] = true;
+                if (curP >= maxP) continue;
+
+                // 通行禁止ノードは除外
+                var uNode = p.nodes[u], vNode = p.nodes[v];
+                if ((uNode && uNode.type === "blocked") || (vNode && vNode.type === "blocked")) continue;
+
+                // 一方通行の逆走は除外
+                var dirVal = (edgeInfo.direction !== undefined) ? edgeInfo.direction : (edgeInfo[3] !== undefined ? edgeInfo[3] : 1);
+                if (eType === "directed") {
+                    if (dirVal === 1 && u !== s.currentNode) continue;
+                    if (dirVal === -1 && v !== s.currentNode) continue;
                 }
+
+                if (u === s.currentNode) connectableNodes[v] = true;
+                if (v === s.currentNode) connectableNodes[u] = true;
             }
         }
 
-        // ★ 2. ドラッグ中の指（s.pointer）がどのノードの判定範囲に入っているか検出
+        // 4. ドラッグ中の指（s.pointer）のホバー検出
         var hoverTargetNode = null;
         if (s.dragging && s.pointer != null) {
-            hoverTargetNode = this.hitNode(s.pointer.x, s.pointer.y);
+            hoverTargetNode = this.hitNode(s.pointer.x, s.pointer.y, connectableNodes);
         }
 
-        // 4. ノード描画
+        // 5. ノード描画
         for(var k = 0; k < p.nodes.length; k++){
             var n = p.nodes[k],
                 q = this.point(n);
 
+            var nType = n.type || "normal";
             var isCurrent = (s.currentNode === k);
             var isConnectable = !!connectableNodes[k];
             var isHovered = (hoverTargetNode === k && isConnectable);
 
-            // ★ 判定条件に応じてサイズと色を切り替え
+            // A. 通行禁止ノード（グレーアウト ＋ ×）
+            if (nType === "blocked") {
+                c.beginPath();
+                c.arc(q.x, q.y, this.nodeRadius, 0, Math.PI * 2);
+                c.fillStyle = "#a0aec0";
+                c.fill();
+
+                // × 印描画
+                c.strokeStyle = "#ffffff";
+                c.lineWidth = 3;
+                var crossSize = 5;
+                c.beginPath();
+                c.moveTo(q.x - crossSize, q.y - crossSize);
+                c.lineTo(q.x + crossSize, q.y + crossSize);
+                c.moveTo(q.x + crossSize, q.y - crossSize);
+                c.lineTo(q.x - crossSize, q.y + crossSize);
+                c.stroke();
+                continue;
+            }
+
+            // B. ワープノード（ユニバーサルデザイン：色 ＋ 記号）
+            if (nType === "warp") {
+                var pairId = n.warpPairId || 0;
+                var palette = WARP_PALETTE[pairId % WARP_PALETTE.length];
+
+                // ベースのリング描画
+                c.beginPath();
+                c.arc(q.x, q.y, isCurrent ? 18 : 14, 0, Math.PI * 2);
+                c.fillStyle = palette.color;
+                c.fill();
+
+                c.beginPath();
+                c.arc(q.x, q.y, (isCurrent ? 18 : 14) + 4, 0, Math.PI * 2);
+                c.strokeStyle = palette.color;
+                c.lineWidth = 2;
+                c.stroke();
+
+                // 記号（★, ♥, ◆, ♠）の描画
+                c.fillStyle = "#ffffff";
+                c.font = "bold 11px sans-serif";
+                c.textAlign = "center";
+                c.textBaseline = "middle";
+                c.fillText(palette.symbol, q.x, q.y);
+
+                if (isCurrent) {
+                    c.beginPath();
+                    c.arc(q.x, q.y, 23, 0, Math.PI * 2);
+                    c.strokeStyle = "#7657c5";
+                    c.lineWidth = 3;
+                    c.stroke();
+                }
+                continue;
+            }
+
+            // C. 通常ノード
             var radius = this.nodeRadius;
             var color = "#ef5b46"; // 通常（赤）
 
@@ -126,13 +263,11 @@
                 radius = 18;
                 color = "#ef5b46";
             } else if (isHovered) {
-                // 指が接近して「吸い込まれる直前」のノード（水色 ＋ 拡大）
                 radius = 20;
-                color = "#00f0ff";
+                color = "#00f0ff"; // 指が吸い込まれる直前（水色）
             } else if (isConnectable) {
-                // 次に接続可能な隣接ノード（オレンジ ＋ 拡大）
                 radius = 16;
-                color = "#ff7b00";
+                color = "#ff7b00"; // 次に進めるノード（オレンジ）
             }
 
             c.beginPath();
@@ -140,7 +275,7 @@
             c.fillStyle = color;
             c.fill();
 
-            // 吸い込み直前（isHovered）の時はネオンリングを描画
+            // ホバー時のネオンリング
             if (isHovered) {
                 c.beginPath();
                 c.arc(q.x, q.y, radius + 6, 0, Math.PI * 2);
@@ -149,7 +284,7 @@
                 c.stroke();
             }
 
-            // 現在地ノードの強調リング
+            // 現在地強調リング
             if (isCurrent) {
                 c.beginPath();
                 c.arc(q.x, q.y, radius + 5, 0, Math.PI * 2);
@@ -160,13 +295,11 @@
         }
     };
 
-    // ★ 引数に connectableNodes（接続可能ノードのマップ/オブジェクト）を追加
     Renderer.prototype.hitNode = function(x, y, connectableNodes){
         var p = this.problem, b = null, bd = Infinity;
         if (!p) return null;
 
         for (var i = 0; i < p.nodes.length; i++){
-            // ★ 接続可能リストが渡されている場合、対象外のノードは判定すらスキップする
             if (connectableNodes && !connectableNodes[i]) {
                 continue;
             }
@@ -175,7 +308,7 @@
                 d = Math.hypot(q.x - x, q.y - y);
 
             if (d <= this.hitRadius && d < bd){
-                b = i;   // ノード番号を返す
+                b = i;
                 bd = d;
             }
         }

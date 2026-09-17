@@ -2,12 +2,14 @@
 (function(){
     "use strict";
     
-    function Input(canvas, engine){
+    // app.js との整合性を保つため renderer 引数を許容
+    function Input(canvas, engine, renderer){
         this.canvas = canvas;
         this.engine = engine;
+        this.renderer = renderer;
         this.pid = null;
 
-        // ★ 追加: 長押しによるコンテキストメニュー（コピーやメニュー）を無効化
+        // 長押しによるコンテキストメニュー（コピーやメニュー）を無効化
         canvas.addEventListener("contextmenu", function(e){ e.preventDefault(); });
         
         canvas.addEventListener("pointerdown", this.down.bind(this));
@@ -29,9 +31,8 @@
         return { x: x, y: y };
     };
 
-    // input.js (down メソッドの先頭付近)
     Input.prototype.down = function(e){
-        // ★ iOS Safari のオーディオミュート解除（画面タッチの瞬間）
+        // iOS Safari のオーディオミュート解除
         if (window.GameSound && typeof window.GameSound.unlock === "function") {
             window.GameSound.unlock();
         }
@@ -49,12 +50,11 @@
         this.engine.pointerMove(this.pos(e));
     };
 
-    // input.js
     Input.prototype.up = function(e){
         if(e.pointerId !== this.pid) return;
         e.preventDefault();
     
-        // ★ 追加: ポインターキャプチャを解除する
+        // ポインターキャプチャを解除
         try {
             if (this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(e.pointerId)) {
                 this.canvas.releasePointerCapture(e.pointerId);
@@ -68,7 +68,7 @@
     Input.prototype.cancel = function(e){
         if(e.pointerId !== this.pid) return;
     
-        // ★ 追加: キャンセル時もポインターキャプチャを解除する
+        // キャンセル時もポインターキャプチャを解除
         try {
             if (this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(e.pointerId)) {
                 this.canvas.releasePointerCapture(e.pointerId);
