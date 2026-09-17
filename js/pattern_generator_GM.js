@@ -27,38 +27,37 @@ function shuffleArray(array) {
     return arr;
 }
 
-// 1. 難易度曲線の定義
+// 1. 難易度曲線の定義（1〜50レベル用にギミック解放条件を調整）
 function difficultyCurve(score) {
     let nodeCount, innerCount, extraEdges;
 
     if (score <= 2) {
-        nodeCount = 3;         // Lv 1~2: Triangle (3)
+        nodeCount = 3;         // Lv 1~2: 三角形
     } else if (score <= 5) {
-        nodeCount = 4;         // Lv 3~5: Quad (4)
+        nodeCount = 4;         // Lv 3~5: 四角形
     } else if (score <= 10) {
-        nodeCount = 5;         // Lv 6~10: Pentagon (5)
+        nodeCount = 5;         // Lv 6~10: 五角形
     } else if (score <= 20) {
-        nodeCount = 6;         // Lv 11~20: Hexagon (6)
+        nodeCount = 6;         // Lv 11~20: 六角形
     } else if (score <= 35) {
-        nodeCount = 7;         // Lv 21~35: 7 nodes
-    } else if (score <= 60) {
-        nodeCount = 8;         // Lv 36~60: 8 nodes
+        nodeCount = 7;         // Lv 21~35: 7ノード
     } else {
-        nodeCount = 9;         // Lv 61~: 9 nodes
+        nodeCount = 8;         // Lv 36~50: 8ノード
     }
 
     if (nodeCount >= 5 && score >= 10) {
-        innerCount = score >= 50 ? randInt(1, 2) : 1;
+        innerCount = score >= 35 ? randInt(1, 2) : 1;
     } else {
         innerCount = 0;
     }
 
-    extraEdges = Math.min(4, Math.floor(score / 15));
+    extraEdges = Math.min(4, Math.floor(score / 10));
 
-    const allowOneWay    = score >= 15;
-    const allowDouble    = score >= 35;
-    const allowWarp      = score >= 70;
-    const allowForbidden = score >= 120;
+    // ★ ギミックの解放レベルを 1〜50 に合わせて調整
+    const allowOneWay    = score >= 6;   // Level 6〜
+    const allowDouble    = score >= 12;  // Level 12〜
+    const allowForbidden = score >= 18;  // Level 18〜
+    const allowWarp      = score >= 25;  // Level 25〜
 
     return {
         nodeCount,
@@ -71,7 +70,7 @@ function difficultyCurve(score) {
     };
 }
 
-// 2. EdgePatternGenerator（一筆書き完全保証版）
+// 2. EdgePatternGenerator
 function EdgePatternGenerator(score, params) {
     const N = params.nodeCount;
     const IN = Math.min(params.innerCount, Math.max(0, N - 3));
@@ -94,11 +93,11 @@ function EdgePatternGenerator(score, params) {
         return true;
     };
 
-    // 1. 外周閉路
+    // 外周閉路
     for (let i = 0; i < OUT - 1; i++) addEdge(i, i + 1);
     addEdge(OUT - 1, 0);
 
-    // 2. 内部ノードの確実な2本接続
+    // 内部ノード接続
     if (IN > 0) {
         for (let i = 0; i < IN; i++) {
             const innerId = OUT + i;
@@ -114,7 +113,7 @@ function EdgePatternGenerator(score, params) {
         }
     }
 
-    // 3. 次数の偶数性を保つ追加エッジ（3点サイクル）
+    // 追加エッジ
     let extraAdded = 0;
     let attempts = 0;
     while (extraAdded < params.extraEdges && attempts < 20) {
@@ -131,13 +130,13 @@ function EdgePatternGenerator(score, params) {
         }
     }
 
-    // 4. ギミック付与
+    // ★ エッジギミック付与（付与確率を上げて確実に発生させる）
     if (params.allowDouble || params.allowOneWay) {
         edges.forEach((e) => {
             const opt = e[2] || {};
-            if (params.allowDouble && Math.random() < 0.2) {
+            if (params.allowDouble && Math.random() < 0.35) {
                 opt.count = 2;
-            } else if (params.allowOneWay && Math.random() < 0.1) {
+            } else if (params.allowOneWay && Math.random() < 0.30) {
                 opt.dir = 1;
             }
             if (Object.keys(opt).length > 0) e[2] = opt;
@@ -147,7 +146,7 @@ function EdgePatternGenerator(score, params) {
     return edges;
 }
 
-// 3. NodeLayoutGenerator（近接防止＆ジッター適用版）
+// 3. NodeLayoutGenerator
 function NodeLayoutGenerator(score, params, edges = []) {
     const N = params.nodeCount;
     let IN = params.innerCount;
@@ -165,7 +164,7 @@ function NodeLayoutGenerator(score, params, edges = []) {
         const baseAngle = angleOffset + (Math.PI * 2 * i) / OUT;
         const angleJitter = randRange(-0.12, 0.12) * (Math.PI * 2 / OUT);
         const angle = baseAngle + angleJitter;
-        const r = randRange(0.30, 0.40); // 画面幅に収まるよう調整
+        const r = randRange(0.30, 0.40);
 
         nodes.push({
             x: Number((0.5 + r * Math.cos(angle)).toFixed(4)),
@@ -173,7 +172,7 @@ function NodeLayoutGenerator(score, params, edges = []) {
         });
     }
 
-    // 内部ノード配置 (分散させて近接チェック落ちを防ぐ)
+    // 内部ノード配置
     for (let i = 0; i < IN; i++) {
         const angle = angleOffset + (Math.PI * 2 * i) / (IN || 1) + Math.PI / IN;
         const r = randRange(0.12, 0.18);
@@ -183,13 +182,13 @@ function NodeLayoutGenerator(score, params, edges = []) {
         });
     }
 
-    // ギミック属性
-    if (params.allowForbidden && Math.random() < 0.25 && N >= 5) {
+    // ★ ノードギミック付与（出現条件を緩めて付与率アップ）
+    if (params.allowForbidden && Math.random() < 0.5) {
         const forbiddenIdx = randInt(0, N - 1);
         nodes[forbiddenIdx].isForbidden = true;
     }
 
-    if (params.allowWarp && Math.random() < 0.3 && N >= 5) {
+    if (params.allowWarp && Math.random() < 0.5) {
         const candidates = nodes.map((_, i) => i).filter(i => !nodes[i].isForbidden);
         const shuffled = shuffleArray(candidates);
         if (shuffled.length >= 2) {
@@ -201,7 +200,7 @@ function NodeLayoutGenerator(score, params, edges = []) {
     return nodes;
 }
 
-// 4. 検証関数（nodes, edges を直接受け取るように修正）
+// 4. 検証関数
 function validateSingleLevel(nodes, edges) {
     if (!nodes || nodes.length === 0) return { valid: false, reason: "ノードなし" };
     if (!edges || edges.length === 0) return { valid: false, reason: "エッジなし" };
@@ -221,7 +220,6 @@ function validateSingleLevel(nodes, edges) {
         }
     }
 
-    // checkPattern関数が未定義の場合のガード処理
     if (typeof checkPattern === "function") {
         const chk = checkPattern(nodes, edges);
         if (!chk.ok) {
@@ -232,7 +230,6 @@ function validateSingleLevel(nodes, edges) {
     return { valid: true };
 }
 
-// アセンブラ関数（シンプルな参照用オブジェクトを返す）
 function LevelSchemeAssembler(score, edges, nodes, params) {
     return {
         id: score,
@@ -259,7 +256,6 @@ function MasterGenerator(start, end) {
             edges = EdgePatternGenerator(score, params);
             nodes = NodeLayoutGenerator(score, params, edges);
 
-            // 検証関数に直接 nodes, edges を渡してチェックを行う
             const check = validateSingleLevel(nodes, edges);
             if (check.valid) {
                 isValid = true;
@@ -268,7 +264,6 @@ function MasterGenerator(start, end) {
             }
         }
 
-        // フォールバック時にも回転・歪みを加えて「完全な正多角形」化を防ぐ
         if (!isValid) {
             const fallbackN = params.nodeCount;
             nodes = [];
