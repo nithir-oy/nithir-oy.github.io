@@ -177,8 +177,16 @@
             this.started = true;
             this.startedAt = performance.now();
 
+            // ワープノードからスタートした場合
             if ((nObj.warpId || nObj.type === "warp") && nObj.warpTarget !== undefined) {
                 this.currentNode = nObj.warpTarget;
+                this.dragging = false;
+                this.pointer = null;
+
+                // ★ ワープエフェクト発火
+                var self = this;
+                this.r.triggerWarpEffect(this.currentNode, function(){ return self.state(); });
+                return;
             }
         }
         else if (n !== this.currentNode){
@@ -237,11 +245,13 @@
 
             // ワープ判定
             var targetNodeObj = this.getNodeType(n);
+            var isWarped = false;
             if ((targetNodeObj.warpId || targetNodeObj.type === "warp") && targetNodeObj.warpTarget !== undefined) {
                 this.currentNode = targetNodeObj.warpTarget;
+                this.dragging = false;
+                this.pointer = null;
+                isWarped = true;
             }
-
-            this.render();
 
             if (this.isCleared()){
                 this.dragging = false;
@@ -258,6 +268,15 @@
                 }
                 return;
             }
+
+            // ★ ワープした場合はエフェクトを発火、通常移動なら通常のレンダリング
+            if (isWarped) {
+                var self = this;
+                this.r.triggerWarpEffect(this.currentNode, function(){ return self.state(); });
+            } else {
+                this.render();
+            }
+            return;
         }
 
         this.render();

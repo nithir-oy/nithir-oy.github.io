@@ -70,8 +70,8 @@ function difficultyCurve(score) {
     };
 }
 
-// 2. EdgePatternGenerator
-function EdgePatternGenerator(score, params) {
+// 2. EdgePatternGenerator (warpPairs パラメータを追加)
+function EdgePatternGenerator(score, params, warpPairs = []) {
     const N = params.nodeCount;
     const IN = Math.min(params.innerCount, Math.max(0, N - 3));
     const OUT = N - IN;
@@ -79,12 +79,22 @@ function EdgePatternGenerator(score, params) {
     let edges = [];
     const edgeSet = new Set();
 
+    // ワープペア間の接続禁止セットを作成
+    const forbiddenWarpEdges = new Set();
+    warpPairs.forEach(([u, v]) => {
+        const a = Math.min(u, v);
+        const b = Math.max(u, v);
+        forbiddenWarpEdges.add(`${a}-${b}`);
+    });
+
     const addEdge = (a, b, opt = {}) => {
         if (a < 0 || b < 0 || a >= N || b >= N || a === b) return false;
         const u = Math.min(a, b);
         const v = Math.max(a, b);
         const key = `${u}-${v}`;
-        if (edgeSet.has(key)) return false;
+        
+        // ワープペア間、またはすでに存在するエッジは除外
+        if (forbiddenWarpEdges.has(key) || edgeSet.has(key)) return false;
         edgeSet.add(key);
 
         const edgeData = [u, v];
@@ -130,7 +140,7 @@ function EdgePatternGenerator(score, params) {
         }
     }
 
-    // ★ エッジギミック付与（付与確率を上げて確実に発生させる）
+    // エッジギミック付与
     if (params.allowDouble || params.allowOneWay) {
         edges.forEach((e) => {
             const opt = e[2] || {};
@@ -146,8 +156,8 @@ function EdgePatternGenerator(score, params) {
     return edges;
 }
 
-// 3. NodeLayoutGenerator
-function NodeLayoutGenerator(score, params, edges = []) {
+// 3. NodeLayoutGenerator (ワープ情報を事前に確定・適用できるように調整)
+function NodeLayoutGenerator(score, params, warpPairs = []) {
     const N = params.nodeCount;
     let IN = params.innerCount;
 
@@ -182,22 +192,30 @@ function NodeLayoutGenerator(score, params, edges = []) {
         });
     }
 
-    // ★ ノードギミック付与（出現条件を緩めて付与率アップ）
+    // ノードギミック付与
     if (params.allowForbidden && Math.random() < 0.5) {
         const forbiddenIdx = randInt(0, N - 1);
         nodes[forbiddenIdx].isForbidden = true;
     }
 
-    if (params.allowWarp && Math.random() < 0.5) {
-        const candidates = nodes.map((_, i) => i).filter(i => !nodes[i].isForbidden);
-        const shuffled = shuffleArray(candidates);
-        if (shuffled.length >= 2) {
-            nodes[shuffled[0]].warpId = "w1";
-            nodes[shuffled[1]].warpId = "w1";
-        }
-    }
+    // 引数で渡されたワープペア情報を適用
+    warpPairs.forEach(([u, v]) => {
+        nodes[u].warpId = "w1";
+        nodes[v].warpId = "w1";
+    });
 
     return nodes;
+}
+
+// ワープペア生成用のヘルパー関数
+function generateWarpPairs(params) {
+    const N = params.nodeCount;
+    const warpPairs = [];
+    if (params.allowWarp && Math.random() < 0.5 && N >= 2) {
+        const candidates = shuffleArray(Array.from({ length: N }, (_, i) => i));
+        warpPairs.push([candidates[0], candidates[1]]);
+    }
+    return warpPairs;
 }
 
 // 4. 検証関数
@@ -238,7 +256,7 @@ function LevelSchemeAssembler(score, edges, nodes, params) {
     };
 }
 
-// 5. 全体生成ループ
+// 5. 全体生成ループ (MasterGenerator の更新)
 function MasterGenerator(start, end) {
     resetAllGeneratedData();
     let totalRetries = 0;
@@ -253,8 +271,12 @@ function MasterGenerator(start, end) {
 
         while (!isValid && attempts < 50) {
             attempts++;
-            edges = EdgePatternGenerator(score, params);
-            nodes = NodeLayoutGenerator(score, params, edges);
+            // 先にワープペアを決定
+            const warpPairs = generateWarpPairs(params);
+            
+            // ワープペア情報を考慮してエッジ・ノードを生成
+            edges = EdgePatternGenerator(score, params, warpPairs);
+            nodes = NodeLayoutGenerator(score, params, warpPairs);
 
             const check = validateSingleLevel(nodes, edges);
             if (check.valid) {

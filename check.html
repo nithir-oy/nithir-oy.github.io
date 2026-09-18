@@ -140,6 +140,7 @@ function jumpToLevel() {
   loadLevelPreview(currentLevel);
 }
 
+// check.html 内の regenLayoutBtn イベントハンドラ部分
 document.getElementById("regenLayoutBtn").onclick = () => {
   const levelId = currentLevel;
   const params = difficultyCurve(levelId);
@@ -149,11 +150,12 @@ document.getElementById("regenLayoutBtn").onclick = () => {
 
   while (!isValid && attempts < 50) {
     attempts++;
-    newEdges = EdgePatternGenerator(levelId, params);
-    newNodes = NodeLayoutGenerator(levelId, params, newEdges);
+    const warpPairs = generateWarpPairs(params);
+    newEdges = EdgePatternGenerator(levelId, params, warpPairs);
+    newNodes = NodeLayoutGenerator(levelId, params, warpPairs);
     const scheme = LevelSchemeAssembler(levelId, newEdges, newNodes, params);
 
-    const check = validateSingleLevel(scheme);
+    const check = validateSingleLevel(newNodes, newEdges);
     if (check.valid) isValid = true;
   }
 

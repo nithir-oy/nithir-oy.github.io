@@ -19,6 +19,10 @@
         this.problem = null;
         this.nodeRadius = 11;
         this.hitRadius = 26;
+
+        // ★ ワープエフェクト用の状態保持
+        this.warpEffect = null;
+        this.animFrameId = null;
     }
 
     Renderer.prototype.resize = function () {
@@ -45,6 +49,41 @@
     };
 
     /**
+     * ワープ演出（波紋 × ネオンフラッシュ）の起動
+     */
+    Renderer.prototype.triggerWarpEffect = function(nodeId, getStateFn) {
+        var self = this;
+        this.warpEffect = {
+            nodeId: nodeId,
+            startTime: performance.now(),
+            duration: 500 // アニメーション時間 (ms)
+        };
+
+        if (this.animFrameId) {
+            cancelAnimationFrame(this.animFrameId);
+        }
+
+        function animate() {
+            if (!self.warpEffect) return;
+            var elapsed = performance.now() - self.warpEffect.startTime;
+
+            // 現在のゲーム状態を取得して再描画
+            var state = (typeof getStateFn === "function") ? getStateFn() : {};
+            self.draw(state);
+
+            if (elapsed < self.warpEffect.duration) {
+                self.animFrameId = requestAnimationFrame(animate);
+            } else {
+                self.warpEffect = null;
+                self.animFrameId = null;
+                self.draw(state);
+            }
+        }
+
+        this.animFrameId = requestAnimationFrame(animate);
+    };
+
+    /**
      * エッジ情報からギミック属性を解析するヘルパー
      */
     Renderer.prototype.getEdgeMeta = function(e) {
@@ -63,7 +102,6 @@
 
     /**
      * 矢印（▲）の描画用ヘルパー関数
-     * 境界線（黒縁）を追加して視認性を向上
      */
     Renderer.prototype.drawArrow = function(ctx, from, to, color) {
         var midX = (from.x + to.x) / 2;
@@ -75,21 +113,18 @@
         ctx.translate(midX, midY);
         ctx.rotate(angle);
         
-        // 矢印のパスを作成
         ctx.beginPath();
         ctx.moveTo(arrowSize, 0);
         ctx.lineTo(-arrowSize, -arrowSize / 1.5);
         ctx.lineTo(-arrowSize, arrowSize / 1.5);
         ctx.closePath();
 
-        // 塗りつぶし
         ctx.fillStyle = color;
         ctx.fill();
 
-        // ★ 黒の境界線（エッジ）を追加
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.6;
         ctx.strokeStyle = "#ef5b46";
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3.5;
         ctx.stroke();
 
         ctx.restore();
@@ -115,16 +150,14 @@
             var currentPasses = usedCount[i] || 0;
             var remainingPasses = Math.max(0, meta.maxPasses - currentPasses);
 
-            // ★ 色覚バリアフリーに対応した明確なカラー設定
-            var strokeColor = "#d1d5dc"; // 0回通過（未通過）：明るいグレー
+            var strokeColor = "#d1d5dc"; // 0回通過（未通過）
 
             if (remainingPasses === 0) {
-                strokeColor = "#7657c5"; // 全通過完了：深いパープル（紫）
+                strokeColor = "#7657c5"; // 全通過完了
             } else if (currentPasses === 1) {
-                strokeColor = "#00d4ff"; // ダブルエッジ1回目通過：鮮やかなシアン（水色）
+                strokeColor = "#00d4ff"; // ダブルエッジ1回目通過
             }
 
-            // A: ダブルエッジ（未通過 = 2重線描画）
             if (meta.isDouble && remainingPasses === 2) {
                 var dx = b.x - a.x;
                 var dy = b.y - a.y;
@@ -145,7 +178,6 @@
                 c.lineTo(b.x - offsetX, b.y - offsetY);
                 c.stroke();
             } 
-            // B: 1重線描画（通常線・1回通過後のダブルエッジ・全通過完了線）
             else {
                 c.lineWidth = (remainingPasses === 0) ? 8 : 7;
                 c.strokeStyle = strokeColor;
@@ -155,12 +187,9 @@
                 c.stroke();
             }
 
-            // C: 一方通行エッジ（矢印描画）
             if (meta.isDirected) {
                 var arrowFrom = (meta.dir === 1) ? a : b;
                 var arrowTo   = (meta.dir === 1) ? b : a;
-                
-                // ★ 通過前は「くっきり見易いイエロー」、通過後は「ホワイト」に指定
                 var arrowColor = (remainingPasses === 0) ? "#ffffff" : "#ffd700";
 
                 this.drawArrow(c, arrowFrom, arrowTo, arrowColor);
@@ -217,7 +246,7 @@
             var isConnectable = !!connectableNodes[k];
             var isHovered = (hoverTargetNode === k && isConnectable);
 
-            // A. 通行禁止ノード（isForbidden: true）
+            // A. 通行禁止ノード
             if (n.isForbidden || n.type === "blocked") {
                 c.beginPath();
                 c.arc(q.x, q.y, this.nodeRadius, 0, Math.PI * 2);
@@ -236,9 +265,9 @@
                 continue;
             }
 
-            // B. ワープノード（warpId または type === "warp"）
+            // B. ワープノード
             if (n.warpId || n.type === "warp") {
-                var palette = WARP_PALETTE[0]; // 単一ペア想定
+                var palette = WARP_PALETTE[0];
 
                 c.beginPath();
                 c.arc(q.x, q.y, isCurrent ? 18 : 14, 0, Math.PI * 2);
@@ -301,6 +330,43 @@
                 c.strokeStyle = "#7657c5";
                 c.lineWidth = 3;
                 c.stroke();
+            }
+        }
+
+        // ★ 6. ワープ演出（波紋 × ネオンフラッシュ）描画処理
+        if (this.warpEffect) {
+            var targetNode = p.nodes[this.warpEffect.nodeId];
+            if (targetNode) {
+                var wPos = this.point(targetNode);
+                var elapsed = performance.now() - this.warpEffect.startTime;
+                var progress = Math.min(1, elapsed / this.warpEffect.duration); // 0.0 -> 1.0
+
+                c.save();
+
+                // ① 波紋（Expand Ring）
+                var minRadius = 18;
+                var maxRadius = 55;
+                var currentRingRadius = minRadius + (maxRadius - minRadius) * progress;
+                var ringAlpha = (1 - progress) * 0.8;
+
+                c.beginPath();
+                c.arc(wPos.x, wPos.y, currentRingRadius, 0, Math.PI * 2);
+                c.strokeStyle = "#00f0ff";
+                c.lineWidth = 3.5 * (1 - progress) + 0.5;
+                c.globalAlpha = ringAlpha;
+                c.stroke();
+
+                // ② ネオンフラッシュ（中心の眩しい発光グロー）
+                var flashAlpha = Math.pow(1 - progress, 2); // フワッと滑らかに減衰
+                c.beginPath();
+                c.arc(wPos.x, wPos.y, 28, 0, Math.PI * 2);
+                c.fillStyle = "#ffffff";
+                c.globalAlpha = flashAlpha * 0.9;
+                c.shadowColor = "#00f0ff";
+                c.shadowBlur = 25;
+                c.fill();
+
+                c.restore();
             }
         }
     };

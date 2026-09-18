@@ -72,7 +72,8 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
 
         const edgeUsage = new Array(expandedEdges.length).fill(0);
 
-        function dfs(currNode, currentPath, usedEdgeTotal) {
+        // lastWasWarp: 直前にワープ移動を行ったかのフラグ（連続即時ワープによる逆走を防ぐ）
+        function dfs(currNode, currentPath, usedEdgeTotal, lastWasWarp = false) {
             totalSteps++;
             if (totalSteps > MAX_STEPS || paths.length >= maxPaths) return;
 
@@ -82,7 +83,7 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
                 return;
             }
 
-            // エッジ移動
+            // 1. エッジ移動
             for (let i = 0; i < expandedEdges.length; i++) {
                 const e = expandedEdges[i];
                 if (edgeUsage[i] < e.maxCount) {
@@ -99,7 +100,7 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
                         edgeUsage[i]++;
                         currentPath.push(nextNode);
 
-                        dfs(nextNode, currentPath, usedEdgeTotal + 1);
+                        dfs(nextNode, currentPath, usedEdgeTotal + 1, false);
 
                         currentPath.pop();
                         edgeUsage[i]--;
@@ -107,16 +108,16 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
                 }
             }
 
-            // ワープ移動（エッジ不消費）
-            const currNodeObj = nodes[currNode];
-            if (currNodeObj && currNodeObj.warpId !== undefined) {
-                const partners = warpMap.get(currNodeObj.warpId) || [];
-                for (let partner of partners) {
-                    if (partner !== currNode && !forbidden.has(partner)) {
-                        const lastNode = currentPath.length >= 2 ? currentPath[currentPath.length - 2] : -1;
-                        if (lastNode !== partner) {
+            // 2. ワープ移動（エッジ不消費）
+            // 直前にワープで移動してきたばかりでなければワープ移動を試行
+            if (!lastWasWarp) {
+                const currNodeObj = nodes[currNode];
+                if (currNodeObj && currNodeObj.warpId !== undefined) {
+                    const partners = warpMap.get(currNodeObj.warpId) || [];
+                    for (let partner of partners) {
+                        if (partner !== currNode && !forbidden.has(partner)) {
                             currentPath.push(partner);
-                            dfs(partner, currentPath, usedEdgeTotal);
+                            dfs(partner, currentPath, usedEdgeTotal, true);
                             currentPath.pop();
                         }
                     }
@@ -124,7 +125,7 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
             }
         }
 
-        dfs(startNode, [startNode], 0);
+        dfs(startNode, [startNode], 0, false);
     }
 
     return paths;
