@@ -87,8 +87,9 @@
         ctx.fill();
 
         // ★ 黒の境界線（エッジ）を追加
-        ctx.strokeStyle = "#000000";
-        ctx.lineWidth = 1.5;
+        // ctx.strokeStyle = "#ef5b46";
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.lineWidth = 2.0;
         ctx.stroke();
 
         ctx.restore();
