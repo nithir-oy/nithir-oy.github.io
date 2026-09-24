@@ -1,7 +1,48 @@
 // app.js
 
 function initApp() {
-    "use strict";
+    "use strict"; // ← 必ず一番上に残す
+
+    // ★ チュートリアル用メッセージ定義（ここに追加）
+    var TUTORIAL_MESSAGES = {
+        5: {
+            title: "NEW: 一方通行",
+            body: "矢印のついた線は、矢印の方向（一方向）にしか進むことができません。"
+        },
+        12: {
+            title: "NEW: ダブルエッジ",
+            body: "数字の「2」がついた線は、クリアまでに【2回】通過する必要があります。"
+        },
+        18: {
+            title: "NEW: 通行禁止ノード",
+            body: "×印のついた灰色のノードは通過できません。避けて線を繋ぎましょう。"
+        },
+        25: {
+            title: "NEW: ワープポータル",
+            body: "ポータルノードに触れると、もう一方のポータルへ瞬時に移動します。"
+        }
+    };
+
+    function checkAndShowTutorial(levelId) {
+        var data = TUTORIAL_MESSAGES[levelId];
+        if (!data) return;
+
+        var modal = document.getElementById("tutorial-modal");
+        var titleEl = document.getElementById("modal-title");
+        var bodyEl = document.getElementById("modal-body");
+        var closeBtn = document.getElementById("modal-close-btn");
+
+        if (!modal || !titleEl || !bodyEl || !closeBtn) return;
+
+        titleEl.textContent = data.title;
+        bodyEl.textContent = data.body;
+
+        modal.classList.remove("hidden");
+
+        closeBtn.onclick = function() {
+            modal.classList.add("hidden");
+        };
+    }
 
     var S = {};
     ["title", "howto", "levels", "game", "clear", "gameover"].forEach(function(n){
@@ -118,6 +159,9 @@ function initApp() {
 
         renderer.resize();
         engine.load(lv);
+
+        // ★ レベル読み込み後にチュートリアル判定・表示を実行
+        checkAndShowTutorial(id);
     }
 
     var engine = new GameEngine(renderer, {
