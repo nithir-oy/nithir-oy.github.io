@@ -4,6 +4,61 @@ const edgePatterns = {};
 const nodeLayouts = {};
 const levelSchemes = [];
 
+// チュートリアル用 固定ステージデータ定義
+const TUTORIAL_LEVELS = {
+    // Level 5: 一方通行 (Directed) チュートリアル
+    // 三角形 + 1本だけ一方通行（矢印の向きにしか進めない）
+    5: {
+        nodes: [{ x: 200, y: 150 }, { x: 100, y: 350 }, { x: 300, y: 350 }],
+        edges: [
+            [0, 1],
+            [1, 2],
+            [2, 0, { dir: 1 }] // ノード2 -> ノード0 の一方通行
+        ]
+    },
+
+    // Level 12: ダブルエッジ (Double) チュートリアル
+    // 2本のノード間に1本だけ「2回通る線」を配置
+    12: {
+        nodes: [{ x: 100, y: 250 }, { x: 200, y: 150 }, { x: 300, y: 250 }],
+        edges: [
+            [0, 1],
+            [1, 2, { count: 2 }], // 2回通る線
+            [2, 0]
+        ]
+    },
+
+    // Level 18: 通行禁止 (Forbidden) チュートリアル
+    // 4ノードのうち1つが障害物（NG）ノード。それを避けて残りを繋ぐ
+    18: {
+        nodes: [
+            { x: 100, y: 150 },
+            { x: 300, y: 150 },
+            { x: 300, y: 350 },
+            { x: 100, y: 350, isForbidden: true } // 障害物ノード
+        ],
+        edges: [
+            [0, 1],
+            [1, 2]
+        ]
+    },
+
+    // Level 25: ワープ (Warp) チュートリアル
+    // 離れた場所にワープペアを配置し、ポータル移動を体験させる
+    25: {
+        nodes: [
+            { x: 100, y: 200 },
+            { x: 200, y: 200, warpId: 1, warpTarget: 2 }, // ワープ入口
+            { x: 200, y: 350, warpId: 1, warpTarget: 1 }, // ワープ出口
+            { x: 300, y: 350 }
+        ],
+        edges: [
+            [0, 1], // 入口へ移動すると自動で出口へジャンプ
+            [2, 3]  // 出口から最後のノードへ
+        ]
+    }
+};
+
 function resetAllGeneratedData() {
     Object.keys(edgePatterns).forEach(k => delete edgePatterns[k]);
     Object.keys(nodeLayouts).forEach(k => delete nodeLayouts[k]);
@@ -338,40 +393,49 @@ function MasterGenerator(start, end) {
     let totalRetries = 0;
 
     for (let score = start; score <= end; score++) {
-        let isValid = false;
-        let scheme = null;
         let edges = null;
         let nodes = null;
-        let attempts = 0;
         const params = difficultyCurve(score);
 
-        while (!isValid && attempts < 50) {
-            attempts++;
-            const warpPairs = generateWarpPairs(params);
-            
-            edges = EdgePatternGenerator(score, params, warpPairs);
-            nodes = NodeLayoutGenerator(score, params, warpPairs);
+        // ★★★ チュートリアルレベルの差し替え判定 ★★★
+        if (TUTORIAL_LEVELS[score]) {
+            console.log(`Lv${score}: 固定チュートリアルステージを生成します。`);
+            nodes = TUTORIAL_LEVELS[score].nodes;
+            edges = TUTORIAL_LEVELS[score].edges;
+        } 
+        else {
+            // 通常のランダム生成処理
+            let isValid = false;
+            let attempts = 0;
 
-            // isForbiddenノードからエッジを削除して checker.js 違反を防ぐ
-            edges = cleanForbiddenEdges(nodes, edges);
+            while (!isValid && attempts < 50) {
+                attempts++;
+                const warpPairs = generateWarpPairs(params);
+                
+                edges = EdgePatternGenerator(score, params, warpPairs);
+                nodes = NodeLayoutGenerator(score, params, warpPairs);
 
-            const check = validateSingleLevel(nodes, edges);
-            if (check.valid) {
-                isValid = true;
-            } else {
-                totalRetries++;
+                // isForbiddenノードからエッジを削除して checker.js 違反を防ぐ
+                edges = cleanForbiddenEdges(nodes, edges);
+
+                const check = validateSingleLevel(nodes, edges);
+                if (check.valid) {
+                    isValid = true;
+                } else {
+                    totalRetries++;
+                }
+            }
+
+            // 50回試行失敗時の保証付きフォールバック処理
+            if (!isValid) {
+                console.warn(`Lv${score}: 条件を満たすランダム配置に失敗。保証フォールバックを実行します。`);
+                const fallbackData = generateGuaranteedFallback(score, params);
+                nodes = fallbackData.nodes;
+                edges = fallbackData.edges;
             }
         }
 
-        // 50回試行失敗時の保証付きフォールバック処理
-        if (!isValid) {
-            console.warn(`Lv${score}: 条件を満たすランダム配置に失敗。保証フォールバックを実行します。`);
-            const fallbackData = generateGuaranteedFallback(score, params);
-            nodes = fallbackData.nodes;
-            edges = fallbackData.edges;
-        }
-
-        scheme = LevelSchemeAssembler(score, edges, nodes, params);
+        const scheme = LevelSchemeAssembler(score, edges, nodes, params);
 
         edgePatterns["P" + score] = edges;
         nodeLayouts["L" + score] = nodes;
