@@ -3,6 +3,63 @@
 function initApp() {
     "use strict"; // ← 必ず一番上に残す
 
+    // 各ギミックに関するテキスト定義を一括管理
+    var TUTORIAL_DATA = {
+        5: {
+            title: '<span class="badge-new">NEW</span> 一方通行',
+            body: "矢印のついた線は、矢印の方向（一方向）にしか進むことができません。",
+            tip: "💡 コツ：矢印の向きを意識して、進入ルートを組み立てよう！",
+            failHint: "一方通行の線は矢印の方向にしか進めないよ！"
+        },
+        12: {
+            title: '<span class="badge-new">NEW</span> ダブルエッジ',
+            body: "数字の「2」がついた線は、クリアまでに【2回】通過する必要があります。",
+            tip: "💡 コツ：2回通る線は行きと帰りなど、往復で上手に活用しよう！",
+            failHint: "数字の「2」がついた線は【2回】通る必要があるよ！"
+        },
+        18: {
+            title: '<span class="badge-new">NEW</span> 通行禁止ノード',
+            body: "×印のついた灰色のノードは通過できません。避けて線を繋ぎましょう。",
+            tip: "💡 コツ：障害物を避けて通る別のルートを探してみよう！",
+            failHint: "×印のついたノードは通ることができないよ！"
+        },
+        25: {
+            title: '<span class="badge-new">NEW</span> ワープポータル',
+            body: "ポータルノードに触れると、もう一方のポータルへ瞬時に移動します。",
+            tip: "💡 コツ：ワープ後も指を離さずに、そのまま次の線へ繋げられるよ！",
+            failHint: "ポータルに触れると自動でペアのポータルへ移動するよ！"
+        }
+    };
+
+    // 初回失敗モーダルをすでに表示したかを記憶するフラグ（Storage連携）
+    function hasSeenFailTutorial(levelId) {
+        return localStorage.getItem("seen_fail_tut_" + levelId) === "true";
+    }
+    function markSeenFailTutorial(levelId) {
+        localStorage.setItem("seen_fail_tut_" + levelId, "true");
+    }
+
+    // 汎用モーダル表示関数
+    function showModal(titleHtml, bodyText, btnText, onClose) {
+        var modal = document.getElementById("tutorial-modal");
+        var titleEl = document.getElementById("modal-title");
+        var bodyEl = document.getElementById("modal-body");
+        var closeBtn = document.getElementById("modal-close-btn");
+
+        if (!modal || !titleEl || !bodyEl || !closeBtn) return;
+
+        titleEl.innerHTML = titleHtml;
+        bodyEl.textContent = bodyText;
+        closeBtn.textContent = btnText || "分かった！";
+
+        modal.classList.remove("hidden");
+
+        closeBtn.onclick = function() {
+            modal.classList.add("hidden");
+            if (typeof onClose === "function") onClose();
+        };
+    }
+
     // ★ チュートリアル用メッセージ定義（ここに追加）
     var TUTORIAL_MESSAGES = {
         5: {
@@ -23,26 +80,15 @@ function initApp() {
         }
     };
 
-    function checkAndShowTutorial(levelId) {
-        var data = TUTORIAL_MESSAGES[levelId];
-        if (!data) return;
+    function checkAndShowTutorial(levelId, onComplete) {
+        var data = TUTORIAL_DATA[levelId];
+        if (!data) {
+            if (onComplete) onComplete();
+            return;
+        }
 
-        var modal = document.getElementById("tutorial-modal");
-        var titleEl = document.getElementById("modal-title");
-        var bodyEl = document.getElementById("modal-body");
-        var closeBtn = document.getElementById("modal-close-btn");
-
-        if (!modal || !titleEl || !bodyEl || !closeBtn) return;
-
-        // ★ textContent から innerHTML に変更
-        titleEl.innerHTML = data.title;
-        bodyEl.textContent = data.body;
-
-        modal.classList.remove("hidden");
-
-        closeBtn.onclick = function() {
-            modal.classList.add("hidden");
-        };
+        // 共通関数 showModal を呼び出してモーダルを表示
+        showModal(data.title, data.body, "挑戦する！", onComplete);
     }
 
     var S = {};
@@ -169,9 +215,22 @@ function initApp() {
         life: drawLife,
         level: function(n){ if (gameLevel) gameLevel.textContent = n; },
         
-        // ★ ギミック失敗時のメッセージ（reason）を表示に反映
+        // ギミック失敗時の挙動
         failure: function(reason){ 
-            flash(reason || "MISS"); 
+            flash(reason || "MISS");
+
+            // ★ 演出3: 対象レベルかつ初回失敗時のみフォローポップアップを表示
+            var tutData = TUTORIAL_DATA[current];
+            if (tutData && tutData.failHint && !hasSeenFailTutorial(current)) {
+                markSeenFailTutorial(current);
+                setTimeout(function(){
+                    showModal(
+                        '<span style="color: var(--danger)">HINT</span> ヒント',
+                        tutData.failHint,
+                        "もう一度トライ！"
+                    );
+                }, 500); // FLASHメッセージが消えかかるタイミングで表示
+            }
         },
         
         // ★ クリア演出
@@ -186,6 +245,18 @@ function initApp() {
 
                 var clearLevelEl = document.getElementById("clear-level");
                 if (clearLevelEl) clearLevelEl.textContent = r.level;
+
+                // ★ 演出2: チュートリアルレベルの場合のみ「おさらい（ワンポイント）」を表示
+                var clearTipEl = document.getElementById("clear-tip");
+                var tutData = TUTORIAL_DATA[r.level];
+                if (clearTipEl) {
+                    if (tutData && tutData.tip) {
+                        clearTipEl.textContent = tutData.tip;
+                        clearTipEl.classList.remove("hidden");
+                    } else {
+                        clearTipEl.classList.add("hidden");
+                    }
+                }
 
                 var recordBadge = recordResult.isNewRecord
                     ? '<span class="new-record-badge">NEW RECORD!</span><br>'
