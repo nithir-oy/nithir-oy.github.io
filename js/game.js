@@ -248,8 +248,7 @@
             var isWarped = false;
             if ((targetNodeObj.warpId || targetNodeObj.type === "warp") && targetNodeObj.warpTarget !== undefined) {
                 this.currentNode = targetNodeObj.warpTarget;
-                this.dragging = false;
-                this.pointer = null;
+                // dragging と pointer は維持する（falseにしない）
                 isWarped = true;
             }
 

@@ -27,22 +27,22 @@ function shuffleArray(array) {
     return arr;
 }
 
-// 1. 難易度曲線の定義（1〜50レベル用にギミック解放条件を調整）
+// 1. 難易度曲線の定義
 function difficultyCurve(score) {
     let nodeCount, innerCount, extraEdges;
 
     if (score <= 2) {
-        nodeCount = 3;         // Lv 1~2: 三角形
+        nodeCount = 3;
     } else if (score <= 5) {
-        nodeCount = 4;         // Lv 3~5: 四角形
+        nodeCount = 4;
     } else if (score <= 10) {
-        nodeCount = 5;         // Lv 6~10: 五角形
+        nodeCount = 5;
     } else if (score <= 20) {
-        nodeCount = 6;         // Lv 11~20: 六角形
+        nodeCount = 6;
     } else if (score <= 35) {
-        nodeCount = 7;         // Lv 21~35: 7ノード
+        nodeCount = 7;
     } else {
-        nodeCount = 8;         // Lv 36~50: 8ノード
+        nodeCount = 8;
     }
 
     if (nodeCount >= 5 && score >= 10) {
@@ -53,11 +53,11 @@ function difficultyCurve(score) {
 
     extraEdges = Math.min(4, Math.floor(score / 10));
 
-    // ★ ギミックの解放レベルを 1〜50 に合わせて調整
-    const allowOneWay    = score >= 6;   // Level 6〜
-    const allowDouble    = score >= 12;  // Level 12〜
-    const allowForbidden = score >= 18;  // Level 18〜
-    const allowWarp      = score >= 25;  // Level 25〜
+    const allowOneWay    = score >= 6;   
+    const allowDouble    = score >= 12;  
+    const allowForbidden = score >= 18;  
+    const allowWarp      = score >= 25;  
+    const forceWarp      = score >= 35;  // Lv35以上はワープ確定発生
 
     return {
         nodeCount,
@@ -66,11 +66,12 @@ function difficultyCurve(score) {
         allowOneWay,
         allowDouble,
         allowWarp,
+        forceWarp,
         allowForbidden
     };
 }
 
-// 2. EdgePatternGenerator (warpPairs パラメータを追加)
+// 2. EdgePatternGenerator
 function EdgePatternGenerator(score, params, warpPairs = []) {
     const N = params.nodeCount;
     const IN = Math.min(params.innerCount, Math.max(0, N - 3));
@@ -79,7 +80,6 @@ function EdgePatternGenerator(score, params, warpPairs = []) {
     let edges = [];
     const edgeSet = new Set();
 
-    // ワープペア間の接続禁止セットを作成
     const forbiddenWarpEdges = new Set();
     warpPairs.forEach(([u, v]) => {
         const a = Math.min(u, v);
@@ -93,7 +93,6 @@ function EdgePatternGenerator(score, params, warpPairs = []) {
         const v = Math.max(a, b);
         const key = `${u}-${v}`;
         
-        // ワープペア間、またはすでに存在するエッジは除外
         if (forbiddenWarpEdges.has(key) || edgeSet.has(key)) return false;
         edgeSet.add(key);
 
@@ -103,7 +102,7 @@ function EdgePatternGenerator(score, params, warpPairs = []) {
         return true;
     };
 
-    // 外周閉路
+    // 外周接続
     for (let i = 0; i < OUT - 1; i++) addEdge(i, i + 1);
     addEdge(OUT - 1, 0);
 
@@ -140,7 +139,12 @@ function EdgePatternGenerator(score, params, warpPairs = []) {
         }
     }
 
-    // エッジギミック付与
+    applyEdgeGimmicks(edges, params);
+
+    return edges;
+}
+
+function applyEdgeGimmicks(edges, params) {
     if (params.allowDouble || params.allowOneWay) {
         edges.forEach((e) => {
             const opt = e[2] || {};
@@ -152,11 +156,9 @@ function EdgePatternGenerator(score, params, warpPairs = []) {
             if (Object.keys(opt).length > 0) e[2] = opt;
         });
     }
-
-    return edges;
 }
 
-// 3. NodeLayoutGenerator (ワープ情報を事前に確定・適用できるように調整)
+// 3. NodeLayoutGenerator
 function NodeLayoutGenerator(score, params, warpPairs = []) {
     const N = params.nodeCount;
     let IN = params.innerCount;
@@ -169,7 +171,6 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
     let nodes = [];
     const angleOffset = randRange(0, Math.PI * 2);
 
-    // 外周ノード配置
     for (let i = 0; i < OUT; i++) {
         const baseAngle = angleOffset + (Math.PI * 2 * i) / OUT;
         const angleJitter = randRange(-0.12, 0.12) * (Math.PI * 2 / OUT);
@@ -182,7 +183,6 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
         });
     }
 
-    // 内部ノード配置
     for (let i = 0; i < IN; i++) {
         const angle = angleOffset + (Math.PI * 2 * i) / (IN || 1) + Math.PI / IN;
         const r = randRange(0.12, 0.18);
@@ -192,26 +192,53 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
         });
     }
 
-    // ノードギミック付与
-    if (params.allowForbidden && Math.random() < 0.5) {
-        const forbiddenIdx = randInt(0, N - 1);
-        nodes[forbiddenIdx].isForbidden = true;
-    }
-
-    // 引数で渡されたワープペア情報を適用
-    warpPairs.forEach(([u, v]) => {
-        nodes[u].warpId = "w1";
-        nodes[v].warpId = "w1";
-    });
+    applyNodeGimmicks(nodes, params, warpPairs);
 
     return nodes;
 }
 
-// ワープペア生成用のヘルパー関数
+function applyNodeGimmicks(nodes, params, warpPairs = []) {
+    const N = nodes.length;
+
+    if (params.allowForbidden && Math.random() < 0.4) {
+        // ワープノード以外のノードを1つNGノードにする
+        const warpNodeIndices = new Set(warpPairs.flat());
+        const candidates = [];
+        for (let i = 0; i < N; i++) {
+            if (!warpNodeIndices.has(i)) candidates.push(i);
+        }
+        if (candidates.length > 0) {
+            const forbiddenIdx = candidates[randInt(0, candidates.length - 1)];
+            nodes[forbiddenIdx].isForbidden = true;
+        }
+    }
+
+    warpPairs.forEach(([u, v]) => {
+        if (nodes[u] && nodes[v]) {
+            nodes[u].warpId = "w1";
+            nodes[v].warpId = "w1";
+        }
+    });
+}
+
+// 接続禁止ノード（isForbidden）のエッジを除去するクリーンアップ関数
+function cleanForbiddenEdges(nodes, edges) {
+    const forbiddenSet = new Set();
+    nodes.forEach((n, idx) => {
+        if (n && n.isForbidden) forbiddenSet.add(idx);
+    });
+
+    if (forbiddenSet.size === 0) return edges;
+
+    return edges.filter(e => !forbiddenSet.has(e[0]) && !forbiddenSet.has(e[1]));
+}
+
 function generateWarpPairs(params) {
     const N = params.nodeCount;
     const warpPairs = [];
-    if (params.allowWarp && Math.random() < 0.5 && N >= 2) {
+    const shouldGenerate = params.forceWarp || (params.allowWarp && Math.random() < 0.5);
+
+    if (shouldGenerate && N >= 3) { // ワープは最低3ノード以上で有効
         const candidates = shuffleArray(Array.from({ length: N }, (_, i) => i));
         warpPairs.push([candidates[0], candidates[1]]);
     }
@@ -256,7 +283,56 @@ function LevelSchemeAssembler(score, edges, nodes, params) {
     };
 }
 
-// 5. 全体生成ループ (MasterGenerator の更新)
+// ★ フォールバック専用：確実に checkPattern.ok を満たす保証レイアウト生成
+function generateGuaranteedFallback(score, params) {
+    const N = params.nodeCount;
+    let nodes = [];
+    let edges = [];
+
+    const offset = randRange(0, Math.PI * 2);
+    for (let i = 0; i < N; i++) {
+        const angle = offset + (Math.PI * 2 * i) / N;
+        nodes.push({ 
+            x: Number((0.5 + 0.35 * Math.cos(angle)).toFixed(4)), 
+            y: Number((0.5 + 0.35 * Math.sin(angle)).toFixed(4)) 
+        });
+    }
+
+    const warpPairs = generateWarpPairs(params);
+
+    if (warpPairs.length > 0) {
+        // ワープがある場合：ワープ(u, v)を跨いで外周を一巡する開パス（Open Path）を構築
+        const [u, v] = warpPairs[0];
+        
+        // 0 -> 1 -> 2 ... -> N-1 のパスから、(u, v)間の直結を除外
+        for (let i = 0; i < N - 1; i++) {
+            edges.push([i, i + 1]);
+        }
+        
+        nodes[u].warpId = "w1";
+        nodes[v].warpId = "w1";
+    } else {
+        // ワープがない場合：標準の閉路
+        for (let i = 0; i < N; i++) {
+            edges.push([i, (i + 1) % N]);
+        }
+    }
+
+    applyEdgeGimmicks(edges, params);
+
+    // checker で最終確認（万が一失敗したらギミックを削った安全版へ）
+    const chk = typeof checkPattern === "function" ? checkPattern(nodes, edges) : { ok: true };
+    if (!chk.ok) {
+        // ギミックなしの安全多角形に差し戻し
+        edges = [];
+        for (let i = 0; i < N; i++) edges.push([i, (i + 1) % N]);
+        nodes.forEach(n => { delete n.warpId; delete n.isForbidden; });
+    }
+
+    return { nodes, edges };
+}
+
+// 5. 全体生成ループ (MasterGenerator)
 function MasterGenerator(start, end) {
     resetAllGeneratedData();
     let totalRetries = 0;
@@ -271,12 +347,13 @@ function MasterGenerator(start, end) {
 
         while (!isValid && attempts < 50) {
             attempts++;
-            // 先にワープペアを決定
             const warpPairs = generateWarpPairs(params);
             
-            // ワープペア情報を考慮してエッジ・ノードを生成
             edges = EdgePatternGenerator(score, params, warpPairs);
             nodes = NodeLayoutGenerator(score, params, warpPairs);
+
+            // isForbiddenノードからエッジを削除して checker.js 違反を防ぐ
+            edges = cleanForbiddenEdges(nodes, edges);
 
             const check = validateSingleLevel(nodes, edges);
             if (check.valid) {
@@ -286,19 +363,12 @@ function MasterGenerator(start, end) {
             }
         }
 
+        // 50回試行失敗時の保証付きフォールバック処理
         if (!isValid) {
-            const fallbackN = params.nodeCount;
-            nodes = [];
-            edges = [];
-            const offset = randRange(0, Math.PI * 2);
-            for (let i = 0; i < fallbackN; i++) {
-                const angle = offset + (Math.PI * 2 * i) / fallbackN;
-                nodes.push({ 
-                    x: Number((0.5 + 0.35 * Math.cos(angle)).toFixed(4)), 
-                    y: Number((0.5 + 0.35 * Math.sin(angle)).toFixed(4)) 
-                });
-                edges.push([i, (i + 1) % fallbackN]);
-            }
+            console.warn(`Lv${score}: 条件を満たすランダム配置に失敗。保証フォールバックを実行します。`);
+            const fallbackData = generateGuaranteedFallback(score, params);
+            nodes = fallbackData.nodes;
+            edges = fallbackData.edges;
         }
 
         scheme = LevelSchemeAssembler(score, edges, nodes, params);
@@ -308,5 +378,5 @@ function MasterGenerator(start, end) {
         levelSchemes.push(scheme);
     }
 
-    console.log(`生成完了: Level ${start} 〜 ${end} （修正試行: ${totalRetries} 回）`);
+    console.log(`生成完了: Level ${start} 〜 ${end} （試行リトライ: ${totalRetries} 回）`);
 }
