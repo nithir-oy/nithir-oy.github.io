@@ -6,19 +6,19 @@ function initApp() {
     // ★ チュートリアル用メッセージ定義（ここに追加）
     var TUTORIAL_MESSAGES = {
         5: {
-            title: "NEW: 一方通行",
+            title: '<span class="badge-new">NEW</span> 一方通行',
             body: "矢印のついた線は、矢印の方向（一方向）にしか進むことができません。"
         },
         12: {
-            title: "NEW: ダブルエッジ",
-            body: "数字の「2」がついた線は、クリアまでに【2回】通過する必要があります。"
+            title: '<span class="badge-new">NEW</span> ダブルエッジ',
+            body: "二重線は、クリアまでに【2回】通過する必要があります。"
         },
         18: {
-            title: "NEW: 通行禁止ノード",
+            title: '<span class="badge-new">NEW</span> 通行禁止ノード',
             body: "×印のついた灰色のノードは通過できません。避けて線を繋ぎましょう。"
         },
         25: {
-            title: "NEW: ワープポータル",
+            title: '<span class="badge-new">NEW</span> ワープポータル',
             body: "ポータルノードに触れると、もう一方のポータルへ瞬時に移動します。"
         }
     };
@@ -34,7 +34,8 @@ function initApp() {
 
         if (!modal || !titleEl || !bodyEl || !closeBtn) return;
 
-        titleEl.textContent = data.title;
+        // ★ textContent から innerHTML に変更
+        titleEl.innerHTML = data.title;
         bodyEl.textContent = data.body;
 
         modal.classList.remove("hidden");

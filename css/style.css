@@ -449,3 +449,19 @@ h2 {
     margin: 0 auto;
     font-size: 15px;
 }
+
+/* モーダル内の「NEW」バッジ装飾 */
+.badge-new {
+    display: inline-block;
+    color: var(--danger);
+    background: rgba(255, 0, 85, 0.15);
+    border: 1px solid var(--danger);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 900;
+    margin-right: 6px;
+    letter-spacing: 0.05em;
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.4);
+    vertical-align: middle;
+}
