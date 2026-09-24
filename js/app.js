@@ -13,9 +13,9 @@ function initApp() {
         },
         12: {
             title: '<span class="badge-new">NEW</span> ダブルエッジ',
-            body: "数字の「2」がついた線は、クリアまでに【2回】通過する必要があります。",
+            body: "二重線は、クリアまでに【2回】通過する必要があります。",
             tip: "💡 コツ：2回通る線は行きと帰りなど、往復で上手に活用しよう！",
-            failHint: "数字の「2」がついた線は【2回】通る必要があるよ！"
+            failHint: "二重線は【2回】通る必要があるよ！"
         },
         18: {
             title: '<span class="badge-new">NEW</span> 通行禁止ノード',
