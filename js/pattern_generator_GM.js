@@ -38,15 +38,16 @@ const TUTORIAL_LEVELS = {
     // Level 18: 通行禁止 (Forbidden)
     18: {
         nodes: [
-            { x: 0.2, y: 0.2 }, // 0
-            { x: 0.8, y: 0.2 }, // 1
-            { x: 0.8, y: 0.8 }, // 2
-            { x: 0.2, y: 0.8, isForbidden: true } // 3
+            { x: 0.2, y: 0.2 }, // 0: 左上
+            { x: 0.8, y: 0.2 }, // 1: 右上
+            { x: 0.8, y: 0.8 }, // 2: 右下
+            { x: 0.2, y: 0.8, isForbidden: true } // 3: 左下(×印)
         ],
         edges: [
             [0, 1],
             [1, 2],
-            [2, 3] // ★ ×印ノード(3)に繋がるエッジを追加（これで点線になります）
+            [2, 3], // ★ ×印ノード(3)に繋がるエッジを追加（これで点線になります）
+            [3, 0]  // ★ [3, 0] を追加して左側の縦の点線を描画
         ]
     },
 
@@ -220,7 +221,7 @@ function applyEdgeGimmicks(edges, params) {
 }
 
 // 3. NodeLayoutGenerator
-function NodeLayoutGenerator(score, params, warpPairs = []) {
+function NodeLayoutGenerator(score, params, warpPairs = [], edges = []) {
     const N = params.nodeCount;
     let IN = params.innerCount;
 
@@ -253,7 +254,8 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
         });
     }
 
-    applyNodeGimmicks(nodes, params, warpPairs);
+    // ★ edges を第4引数として渡す
+    applyNodeGimmicks(nodes, params, warpPairs, edges);
 
     return nodes;
 }
@@ -261,8 +263,8 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
 function applyNodeGimmicks(nodes, params, warpPairs = [], edges = []) {
     const N = nodes.length;
 
-    if (params.allowForbidden && Math.random() < 0.4) {
-        // ワープノード以外のノードを1つNGノードにする
+    // ★ 確率を 0.7 (70%) に引き上げて出現頻度を向上
+    if (params.allowForbidden && Math.random() < 0.7) {
         const warpNodeIndices = new Set(warpPairs.flat());
         const candidates = [];
         for (let i = 0; i < N; i++) {
@@ -272,12 +274,14 @@ function applyNodeGimmicks(nodes, params, warpPairs = [], edges = []) {
             const forbiddenIdx = candidates[randInt(0, candidates.length - 1)];
             nodes[forbiddenIdx].isForbidden = true;
 
-            // ★ 追加: もし forbiddenIdx に繋がるエッジが1本もなければ、適当なノード(0番など)と繋ぐ
+            // ★ 通行禁止ノードに繋がるエッジがなければ、近くのノードと接続エッジ（点線用）を自動生成する
             if (edges && edges.length > 0) {
                 const hasEdge = edges.some(e => e[0] === forbiddenIdx || e[1] === forbiddenIdx);
                 if (!hasEdge) {
                     const targetIdx = (forbiddenIdx + 1) % N;
-                    edges.push([Math.min(forbiddenIdx, targetIdx), Math.max(forbiddenIdx, targetIdx)]);
+                    const u = Math.min(forbiddenIdx, targetIdx);
+                    const v = Math.max(forbiddenIdx, targetIdx);
+                    edges.push([u, v]);
                 }
             }
         }
@@ -427,8 +431,9 @@ function MasterGenerator(start, end) {
                 attempts++;
                 const warpPairs = generateWarpPairs(params);
                 
+                // MasterGenerator のループ内
                 edges = EdgePatternGenerator(score, params, warpPairs);
-                nodes = NodeLayoutGenerator(score, params, warpPairs);
+                nodes = NodeLayoutGenerator(score, params, warpPairs, edges); // ★ edges を渡す
 
                 // isForbiddenノードからエッジを削除して checker.js 違反を防ぐ
                 // edges = cleanForbiddenEdges(nodes, edges);
