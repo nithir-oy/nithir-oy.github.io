@@ -206,9 +206,6 @@
         }
 
         this.dragging = true;
-        if (this.dragging) {
-            this.startDragLoop();
-        }
         this.pointer = pos;
         this.render();
     };
@@ -268,7 +265,6 @@
 
             if (this.isCleared()){
                 this.dragging = false;
-                this.stopDragLoop(); // ★ ここを追加！
                 this.pointer = null;
                 this.transition = true;
 
@@ -301,7 +297,6 @@
 
         var n = this.r.hitNode(pos.x, pos.y);
         this.dragging = false;
-        this.stopDragLoop();
         this.pointer = null;
 
         if (this.isCleared()){
@@ -345,30 +340,6 @@
 
     Engine.prototype.pointerCancel = function(){
         if (this.dragging) this.fail("操作がキャンセルされました");
-        this.dragging = false;
-        this.stopDragLoop();
-    };
-
-    // ★ pointerCancel の下に追加
-    Engine.prototype.startDragLoop = function(){
-        if (this.dragAnimId) return;
-        var self = this;
-        function loop(){
-            if (self.dragging) {
-                self.render();
-                self.dragAnimId = requestAnimationFrame(loop);
-            } else {
-                self.dragAnimId = null;
-            }
-        }
-        this.dragAnimId = requestAnimationFrame(loop);
-    };
-
-    Engine.prototype.stopDragLoop = function(){
-        if (this.dragAnimId) {
-            cancelAnimationFrame(this.dragAnimId);
-            this.dragAnimId = null;
-        }
     };
 
     Engine.prototype.isCleared = function(){
