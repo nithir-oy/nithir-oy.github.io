@@ -143,14 +143,8 @@
         // 1. エッジ（線）の描画
         for(var i = 0; i < p.edges.length; i++){
             var e = p.edges[i],
-                nodeA = p.nodes[e[0]],
-                nodeB = p.nodes[e[1]],
-                a = this.point(nodeA),
-                b = this.point(nodeB);
-
-            // ★ 通行禁止ノードに繋がるエッジかどうかを判定
-            var isBlockedEdge = (nodeA && (nodeA.isForbidden || nodeA.type === "blocked")) ||
-                                (nodeB && (nodeB.isForbidden || nodeB.type === "blocked"));
+                a = this.point(p.nodes[e[0]]),
+                b = this.point(p.nodes[e[1]]);
 
             var meta = this.getEdgeMeta(e);
             var currentPasses = usedCount[i] || 0;
@@ -158,19 +152,10 @@
 
             var strokeColor = "#d1d5dc"; // 0回通過（未通過）
 
-            if (isBlockedEdge) {
-                strokeColor = "rgba(160, 174, 192, 0.6)"; // 通行禁止エッジは少し暗めのグレー
-            } else if (remainingPasses === 0) {
+            if (remainingPasses === 0) {
                 strokeColor = "#7657c5"; // 全通過完了
             } else if (currentPasses === 1) {
                 strokeColor = "#00d4ff"; // ダブルエッジ1回目通過
-            }
-
-            // ★ 点線スタイルの適用切り替え
-            if (isBlockedEdge) {
-                c.setLineDash([6, 6]);
-            } else {
-                c.setLineDash([]);
             }
 
             if (meta.isDouble && remainingPasses === 2) {
@@ -201,9 +186,6 @@
                 c.lineTo(b.x, b.y);
                 c.stroke();
             }
-
-            // ★ 描画が終わったらセットした Dash を解除しておく
-            c.setLineDash([]);
 
             if (meta.isDirected) {
                 var arrowFrom = (meta.dir === 1) ? a : b;

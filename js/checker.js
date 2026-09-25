@@ -4,21 +4,6 @@ function checkPattern(nodes, edges) {
     if (!nodes || nodes.length === 0) return { ok: false, reason: "no nodes" };
     if (!edges || edges.length === 0) return { ok: false, reason: "no edges" };
 
-    const N = nodes.length;
-
-    // 通行禁止ノードの特定
-    const forbiddenSet = new Set();
-    nodes.forEach((n, idx) => {
-        if (n && n.isForbidden) forbiddenSet.add(idx);
-    });
-
-    // 通行禁止ノードに接続するエッジのチェック
-    for (const e of edges) {
-        if (forbiddenSet.has(e[0]) || forbiddenSet.has(e[1])) {
-            return { ok: false, reason: `Forbidden node is connected to edge: [${e[0]}, ${e[1]}]` };
-        }
-    }
-
     // DFSによる実走判定（一筆書き経路の存在チェック）
     const trails = findAllEulerPaths(nodes, edges, 1);
     if (!trails || trails.length === 0) {
@@ -49,19 +34,28 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
         }
     });
 
-    // エッジの分解と構造化
-    const expandedEdges = edges.map((e, idx) => {
+    // エッジの分解と構造化（通行禁止ノードに繋がるエッジかどうかの判定も追加）
+    const expandedEdges = [];
+    edges.forEach((e, idx) => {
+        const u = e[0];
+        const v = e[1];
+        const isBlockedEdge = forbidden.has(u) || forbidden.has(v);
+
         const opt = e[2] || {};
-        return {
+        expandedEdges.push({
             id: idx,
-            u: e[0],
-            v: e[1],
+            u: u,
+            v: v,
             dir: opt.dir || 0,     // 0: 双方向, 1: u -> v
-            maxCount: opt.count || 1
-        };
+            maxCount: opt.count || 1,
+            isBlockedEdge: isBlockedEdge // ★ 通行禁止エッジフラグ
+        });
     });
 
-    const totalRequiredEdges = expandedEdges.reduce((sum, e) => sum + e.maxCount, 0);
+    // ★ 必須エッジ数には「通行禁止ノードに繋がるエッジ」を含めない
+    const totalRequiredEdges = expandedEdges.reduce((sum, e) => {
+        return e.isBlockedEdge ? sum : sum + e.maxCount;
+    }, 0);
 
     let totalSteps = 0;
     const MAX_STEPS = 50000;
@@ -72,12 +66,11 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
 
         const edgeUsage = new Array(expandedEdges.length).fill(0);
 
-        // lastWasWarp: 直前にワープ移動を行ったかのフラグ（連続即時ワープによる逆走を防ぐ）
         function dfs(currNode, currentPath, usedEdgeTotal, lastWasWarp = false) {
             totalSteps++;
             if (totalSteps > MAX_STEPS || paths.length >= maxPaths) return;
 
-            // 全てのエッジを通過完了
+            // 通行対象のエッジを全て通過完了
             if (usedEdgeTotal === totalRequiredEdges) {
                 paths.push([...currentPath]);
                 return;
@@ -86,6 +79,10 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
             // 1. エッジ移動
             for (let i = 0; i < expandedEdges.length; i++) {
                 const e = expandedEdges[i];
+
+                // ★ 通行禁止エッジは探索対象から外す
+                if (e.isBlockedEdge) continue;
+
                 if (edgeUsage[i] < e.maxCount) {
                     let nextNode = -1;
 
@@ -109,7 +106,6 @@ function findAllEulerPaths(nodes, edges, maxPaths = 10) {
             }
 
             // 2. ワープ移動（エッジ不消費）
-            // 直前にワープで移動してきたばかりでなければワープ移動を試行
             if (!lastWasWarp) {
                 const currNodeObj = nodes[currNode];
                 if (currNodeObj && currNodeObj.warpId !== undefined) {

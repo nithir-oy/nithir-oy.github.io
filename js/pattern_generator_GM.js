@@ -38,14 +38,15 @@ const TUTORIAL_LEVELS = {
     // Level 18: 通行禁止 (Forbidden)
     18: {
         nodes: [
-            { x: 0.2, y: 0.2 },
-            { x: 0.8, y: 0.2 },
-            { x: 0.8, y: 0.8 },
-            { x: 0.2, y: 0.8, isForbidden: true }
+            { x: 0.2, y: 0.2 }, // 0
+            { x: 0.8, y: 0.2 }, // 1
+            { x: 0.8, y: 0.8 }, // 2
+            { x: 0.2, y: 0.8, isForbidden: true } // 3
         ],
         edges: [
             [0, 1],
-            [1, 2]
+            [1, 2],
+            [2, 3] // ★ ×印ノード(3)に繋がるエッジを追加（これで点線になります）
         ]
     },
 
@@ -257,7 +258,7 @@ function NodeLayoutGenerator(score, params, warpPairs = []) {
     return nodes;
 }
 
-function applyNodeGimmicks(nodes, params, warpPairs = []) {
+function applyNodeGimmicks(nodes, params, warpPairs = [], edges = []) {
     const N = nodes.length;
 
     if (params.allowForbidden && Math.random() < 0.4) {
@@ -270,6 +271,15 @@ function applyNodeGimmicks(nodes, params, warpPairs = []) {
         if (candidates.length > 0) {
             const forbiddenIdx = candidates[randInt(0, candidates.length - 1)];
             nodes[forbiddenIdx].isForbidden = true;
+
+            // ★ 追加: もし forbiddenIdx に繋がるエッジが1本もなければ、適当なノード(0番など)と繋ぐ
+            if (edges && edges.length > 0) {
+                const hasEdge = edges.some(e => e[0] === forbiddenIdx || e[1] === forbiddenIdx);
+                if (!hasEdge) {
+                    const targetIdx = (forbiddenIdx + 1) % N;
+                    edges.push([Math.min(forbiddenIdx, targetIdx), Math.max(forbiddenIdx, targetIdx)]);
+                }
+            }
         }
     }
 
@@ -282,16 +292,16 @@ function applyNodeGimmicks(nodes, params, warpPairs = []) {
 }
 
 // 接続禁止ノード（isForbidden）のエッジを除去するクリーンアップ関数
-function cleanForbiddenEdges(nodes, edges) {
-    const forbiddenSet = new Set();
-    nodes.forEach((n, idx) => {
-        if (n && n.isForbidden) forbiddenSet.add(idx);
-    });
+// function cleanForbiddenEdges(nodes, edges) {
+//     const forbiddenSet = new Set();
+//     nodes.forEach((n, idx) => {
+//         if (n && n.isForbidden) forbiddenSet.add(idx);
+//     });
 
-    if (forbiddenSet.size === 0) return edges;
+//     if (forbiddenSet.size === 0) return edges;
 
-    return edges.filter(e => !forbiddenSet.has(e[0]) && !forbiddenSet.has(e[1]));
-}
+//     return edges.filter(e => !forbiddenSet.has(e[0]) && !forbiddenSet.has(e[1]));
+// }
 
 function generateWarpPairs(params) {
     const N = params.nodeCount;
@@ -421,7 +431,7 @@ function MasterGenerator(start, end) {
                 nodes = NodeLayoutGenerator(score, params, warpPairs);
 
                 // isForbiddenノードからエッジを削除して checker.js 違反を防ぐ
-                edges = cleanForbiddenEdges(nodes, edges);
+                // edges = cleanForbiddenEdges(nodes, edges);
 
                 const check = validateSingleLevel(nodes, edges);
                 if (check.valid) {
