@@ -63,7 +63,18 @@
         this.totalRequiredPasses = 0;
         if (level.edges) {
             for (var i = 0; i < level.edges.length; i++) {
-                var meta = this.getEdgeMeta(level.edges[i]);
+                var e = level.edges[i];
+                var u = e[0], v = e[1];
+                
+                // ★ 通行禁止ノードに接続しているエッジはクリア目標数から除外する
+                var nodeU = this.getNodeType(u);
+                var nodeV = this.getNodeType(v);
+                if (nodeU.isForbidden || nodeU.type === "blocked" || 
+                    nodeV.isForbidden || nodeV.type === "blocked") {
+                    continue;
+                }
+
+                var meta = this.getEdgeMeta(e);
                 this.totalRequiredPasses += meta.maxPasses;
             }
         }
@@ -335,6 +346,17 @@
         var totalPassed = 0;
         for (var idx in this.usedCount) {
             if (this.usedCount.hasOwnProperty(idx)) {
+                var e = this.level.edges[idx];
+                if (e) {
+                    var u = e[0], v = e[1];
+                    var nodeU = this.getNodeType(u);
+                    var nodeV = this.getNodeType(v);
+                    // 通行禁止ノード側のエッジは通過数としてカウントしない
+                    if (nodeU.isForbidden || nodeU.type === "blocked" || 
+                        nodeV.isForbidden || nodeV.type === "blocked") {
+                        continue;
+                    }
+                }
                 totalPassed += this.usedCount[idx];
             }
         }
