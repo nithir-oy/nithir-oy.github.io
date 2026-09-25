@@ -251,12 +251,8 @@
 
         // 4. ドラッグ中のホバー検出
         var hoverTargetNode = null;
-        var hoverForbiddenNode = null; // ★ 通行禁止ノードへの接近判定用
         if (s.dragging && s.pointer != null) {
             hoverTargetNode = this.hitNode(s.pointer.x, s.pointer.y, connectableNodes);
-            
-            // ★ 指が近づいている通行禁止ノードがあるかを検出
-            hoverForbiddenNode = this.hitForbiddenNode(s.pointer.x, s.pointer.y);
         }
 
         // 5. ノード描画
@@ -270,47 +266,20 @@
 
             // A. 通行禁止ノード
             if (n.isForbidden || n.type === "blocked") {
-                var isForbiddenHovered = (hoverForbiddenNode === k);
-                var fRadius = this.nodeRadius; // 通常時の半径 (11)
-                var fColor = "#a0aec0";        // 通常時のグレー
-
-                if (isForbiddenHovered) {
-                    // ★ 接続可能ノードのホバー時（20）と同じサイズまで拡大
-                    fRadius = 20;
-
-                    // ★ 赤色の点滅（フラッシュ）アニメーション
-                    // 時間経過に合わせて透明度を揺らす (0.35〜1.0)
-                    var alpha = 0.675 + 0.325 * Math.sin(performance.now() / 80);
-                    fColor = "rgba(255, 45, 85, " + alpha + ")"; // 赤色アラート
-                }
-
-                // ノード本体の描画
                 c.beginPath();
-                c.arc(q.x, q.y, fRadius, 0, Math.PI * 2);
-                c.fillStyle = fColor;
+                c.arc(q.x, q.y, this.nodeRadius, 0, Math.PI * 2);
+                c.fillStyle = "#a0aec0";
                 c.fill();
 
-                // 接近時に赤い警告リング（外枠）を描画（接続可能ノードの fRadius + 6 と同様の演出）
-                if (isForbiddenHovered) {
-                    c.beginPath();
-                    c.arc(q.x, q.y, fRadius + 6, 0, Math.PI * 2);
-                    c.strokeStyle = fColor;
-                    c.lineWidth = 3;
-                    c.stroke();
-                }
-
-                // ×印の描画（ノードの拡大に合わせて×印も少し大きく拡大）
                 c.strokeStyle = "#ffffff";
-                c.lineWidth = isForbiddenHovered ? 4 : 3;
-                var crossSize = isForbiddenHovered ? 8 : 5;
-
+                c.lineWidth = 3;
+                var crossSize = 5;
                 c.beginPath();
                 c.moveTo(q.x - crossSize, q.y - crossSize);
                 c.lineTo(q.x + crossSize, q.y + crossSize);
                 c.moveTo(q.x + crossSize, q.y - crossSize);
                 c.lineTo(q.x - crossSize, q.y + crossSize);
                 c.stroke();
-
                 continue;
             }
 
@@ -433,29 +402,6 @@
                 d = Math.hypot(q.x - x, q.y - y);
 
             if (d <= this.hitRadius && d < bd){
-                b = i;
-                bd = d;
-            }
-        }
-        return b;
-    };
-
-    /**
-     * 通行禁止ノード専用の当たり判定ヘルパー
-     */
-    Renderer.prototype.hitForbiddenNode = function(x, y) {
-        var p = this.problem, b = null, bd = Infinity;
-        if (!p) return null;
-
-        for (var i = 0; i < p.nodes.length; i++) {
-            var n = p.nodes[i];
-            // 通行禁止ノードのみを対象にする
-            if (!n || (!n.isForbidden && n.type !== "blocked")) continue;
-
-            var q = this.point(n),
-                d = Math.hypot(q.x - x, q.y - y);
-
-            if (d <= this.hitRadius && d < bd) {
                 b = i;
                 bd = d;
             }
