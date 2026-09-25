@@ -447,6 +447,9 @@
         var p = this.problem, b = null, bd = Infinity;
         if (!p) return null;
 
+        // ★ 接近アラート用の広い判定半径（標準のhitRadius 26 の約1.8倍）
+        var warningRadius = 48;
+
         for (var i = 0; i < p.nodes.length; i++) {
             var n = p.nodes[i];
             // 通行禁止ノードのみを対象にする
